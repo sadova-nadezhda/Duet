@@ -5,9 +5,11 @@ import { Alert, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APP_NAME } from '@/components/AppHeader';
 import { MonthCalendar } from '@/components/MonthCalendar';
+import { PhotoField } from '@/components/PhotoField';
 import { Button, Card, FieldLabel, IconButton, Input, Txt } from '@/components/ui';
 import { humanDate } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
+import { deletePhoto } from '@/lib/upload';
 import { colors, fonts } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -34,7 +36,14 @@ export default function Settings() {
     ]);
     const err = a.error ?? b.error;
     if (err) return Alert.alert('Ошибка', err.message);
+    if ((me?.avatar_url ?? '') !== avatar.trim()) deletePhoto(me?.avatar_url);
     await refresh();
+    router.back();
+  };
+
+  /** Закрыли без сохранения — только что загруженное фото больше не нужно */
+  const close = () => {
+    if ((me?.avatar_url ?? '') !== avatar.trim()) deletePhoto(avatar.trim());
     router.back();
   };
 
@@ -43,13 +52,13 @@ export default function Settings() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Txt variant="h2">Настройки</Txt>
-          <IconButton icon={X} onPress={() => router.back()} color={colors.text} />
+          <IconButton icon={X} onPress={close} color={colors.text} />
         </View>
 
         <FieldLabel>Ваше имя</FieldLabel>
         <Input value={name} onChangeText={setName} />
-        <FieldLabel optional>Фото (URL)</FieldLabel>
-        <Input value={avatar} onChangeText={setAvatar} placeholder="https://…" autoCapitalize="none" />
+        <FieldLabel optional>Фото</FieldLabel>
+        <PhotoField value={avatar} onChange={setAvatar} square />
 
         <FieldLabel>Вместе с</FieldLabel>
         <Txt variant="muted">{since ? humanDate(since) + ' ' + since.slice(0, 4) : 'Не указано'}</Txt>

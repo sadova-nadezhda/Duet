@@ -243,6 +243,21 @@ create policy "ratings: delete own" on public.movie_ratings for delete using (us
 -- =====================================================================
 -- Realtime: синхронизация между телефонами
 -- =====================================================================
+-- ---------- Storage: загруженные фото (аватары, картинки желаний) ----------
+-- Публичный бакет: читать по ссылке может кто угодно, загружать — только в папку своей пары.
+insert into storage.buckets (id, name, public) values ('photos', 'photos', true)
+on conflict (id) do nothing;
+
+create policy "photos: upload to own couple" on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = public.my_couple_id()::text);
+
+-- remove() в Storage требует и select, и delete
+create policy "photos: select own couple" on storage.objects for select to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = public.my_couple_id()::text);
+
+create policy "photos: delete own couple" on storage.objects for delete to authenticated
+  using (bucket_id = 'photos' and (storage.foldername(name))[1] = public.my_couple_id()::text);
+
 alter publication supabase_realtime add table
   public.tasks, public.reminders, public.shopping_items, public.recipes,
   public.wishes, public.gift_reservations, public.places, public.notes,

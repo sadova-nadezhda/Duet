@@ -2,6 +2,8 @@ import { Image } from 'expo-image';
 import { Eye, Gift, Info, Link2, Lock, Sparkles, Wand2 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, View, ScrollView } from 'react-native';
+import { PhotoField } from '@/components/PhotoField';
+import { deletePhoto } from '@/lib/upload';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
 import {
   Avatar,
@@ -137,7 +139,10 @@ export default function Wishlist() {
             setAddOpen(true);
           }}
           onDelete={() => {
-            wishes.remove(opened.id).catch(alertErr);
+            wishes
+              .remove(opened.id)
+              .then(() => deletePhoto(opened.image_url))
+              .catch(alertErr);
             setOpened(null);
           }}
           onReserve={(status) => reservations.insert({ wish_id: opened.id, status }).catch(alertErr)}
@@ -242,15 +247,27 @@ function WishSheet({
     const p = await fetchLinkPreview(url.trim());
     setLoading(false);
     if (p.title && !title) setTitle(p.title);
-    if (p.image) setImage(p.image);
+    if (p.image) {
+      if (image !== (editing?.image_url ?? '')) deletePhoto(image);
+      setImage(p.image);
+    }
     if (p.price && !price) setPrice(String(p.price));
     if (!p.title && !p.image) Alert.alert('Не удалось', 'Сайт не отдал данные — заполните вручную');
+  };
+
+  /** Сохранённая картинка заменена — старая больше не нужна */
+  const imageChanged = () => image.trim() !== (editing?.image_url ?? '');
+
+  /** Закрыли без сохранения — удаляем только что загруженное фото */
+  const cancel = () => {
+    if (imageChanged()) deletePhoto(image.trim());
+    onClose();
   };
 
   return (
     <Sheet
       visible={visible}
-      onClose={onClose}
+      onClose={cancel}
       title={editing ? 'Изменить желание' : 'Новое желание'}
       footer={
         <Button
@@ -266,7 +283,10 @@ function WishSheet({
               image_url: image.trim() || null,
               note: note.trim() || null,
             })
-              .then(onClose)
+              .then(() => {
+                if (imageChanged()) deletePhoto(editing?.image_url);
+                onClose();
+              })
               .catch(alertErr)
           }
         />
@@ -308,8 +328,8 @@ function WishSheet({
           ))}
         </ChipRow>
       </View>
-      <FieldLabel optional>Картинка (URL)</FieldLabel>
-      <Input value={image} onChangeText={setImage} placeholder="Подставится из ссылки" autoCapitalize="none" />
+      <FieldLabel optional>Картинка</FieldLabel>
+      <PhotoField value={image} onChange={setImage} placeholder="URL или подставится из ссылки" />
       <FieldLabel optional>Заметка</FieldLabel>
       <Input value={note} onChangeText={setNote} placeholder="Размер, цвет…" multiline />
     </Sheet>
