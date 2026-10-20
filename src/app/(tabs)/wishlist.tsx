@@ -20,10 +20,11 @@ import {
   Txt,
   Screen,
 } from '@/components/ui';
+import { PlaceSheet, topPlacePosition, type PlaceDraft } from '@/features/places/PlaceSheet';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { fetchLinkPreview } from '@/lib/linkPreview';
 import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
-import type { GiftReservation, Wish, WishCategory } from '@/lib/types';
+import type { GiftReservation, Place, Wish, WishCategory } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
 const alertErr = (e: any) => Alert.alert('Ошибка', e?.message ?? String(e));
@@ -41,6 +42,13 @@ export default function Wishlist() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Wish | null>(null);
   const [opened, setOpened] = useState<Wish | null>(null);
+  const [completing, setCompleting] = useState<Wish | null>(null);
+  const places = useCoupleTable<Place>('places');
+  // Стабильный объект, иначе форма места сбрасывала бы поля на каждом рендере
+  const completingDraft = useMemo<PlaceDraft | null>(
+    () => (completing ? { title: completing.title, category: 'Путешествие', address: null, note: completing.note } : null),
+    [completing],
+  );
 
   const ownerId = owner === 'me' ? me?.id : partner?.id;
   const list = useMemo(() => wishes.rows.filter((w) => w.category === cat && w.owner === ownerId), [wishes.rows, cat, ownerId]);
@@ -146,11 +154,30 @@ export default function Wishlist() {
               .catch(alertErr);
             setOpened(null);
           }}
+          onComplete={() => {
+            setCompleting(opened);
+            setOpened(null);
+          }}
           onReserve={(status) => reservations.insert({ wish_id: opened.id, status }).catch(alertErr)}
           onUpdateReservation={(status) => reservations.update(opened.id, { status }).catch(alertErr)}
           onCancelReservation={() => reservations.remove(opened.id).catch(alertErr)}
         />
       )}
+
+      {/* Поездка выполнена: дополняем данные и переносим в историю «Места» */}
+      <PlaceSheet
+        visible={!!completing}
+        onClose={() => setCompleting(null)}
+        initial={completingDraft}
+        title="Где мы были"
+        submitLabel="Добавить в «Места»"
+        onSave={async (v) => {
+          const done = completing!;
+          await places.insert({ ...v, visited: true, position: topPlacePosition(places.rows) });
+          await wishes.remove(done.id);
+          deletePhoto(done.image_url);
+        }}
+      />
     </Screen>
   );
 }
@@ -163,6 +190,7 @@ function WishDetails(p: {
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onComplete: () => void;
   onReserve: (s: 'planned' | 'bought') => void;
   onUpdateReservation: (s: 'planned' | 'bought') => void;
   onCancelReservation: () => void;
@@ -186,6 +214,8 @@ function WishDetails(p: {
         </Txt>
       )}
       <View style={{ gap: 10, marginTop: 20 }}>
+        {/* Поездка общая, поэтому отметить её может любой из пары */}
+        {w.category === 'trip' && <Button label="Выполнено" onPress={p.onComplete} />}
         {!!w.url && <Button label="Открыть ссылку" variant="ghost" onPress={() => Linking.openURL(w.url!)} />}
 
         {!p.isMine && w.category === 'gift' && !r && <Button label="Я подарю" onPress={() => p.onReserve('planned')} />}

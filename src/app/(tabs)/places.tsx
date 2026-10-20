@@ -4,13 +4,12 @@ import { Alert, Linking, Platform, ScrollView, View } from 'react-native';
 import { ItemMenu } from '@/components/common';
 import { SortableList } from '@/components/SortableList';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
-import { Button, Card, Chip, ChipRow, Empty, FieldLabel, Input, Screen, ScreenTitle, Sheet, Txt } from '@/components/ui';
+import { Card, Chip, Empty, Screen, ScreenTitle, Txt } from '@/components/ui';
+import { PlaceSheet, topPlacePosition, type PlaceDraft } from '@/features/places/PlaceSheet';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { supabase } from '@/lib/supabase';
 import { useColors } from '@/lib/theme';
 import type { Place } from '@/lib/types';
-
-const CATEGORIES = ['Ресторан', 'Кафе', 'Бар', 'Природа', 'Музей', 'Путешествие', 'Активности'];
 
 const openMap = (q: string) => {
   const query = encodeURIComponent(q);
@@ -34,29 +33,16 @@ export default function Places() {
   const [dragging, setDragging] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Place | null>(null);
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
-  const [address, setAddress] = useState('');
-  const [note, setNote] = useState('');
 
   const list = places.rows.filter((p) => p.visited).sort(byPosition);
-  /** position, при котором место окажется первым */
-  const topPosition = () => Math.min(0, ...list.map((p) => p.position)) - 1;
 
   const openForm = (p: Place | null) => {
     setEditing(p);
-    setTitle(p?.title ?? '');
-    setCategory(p?.category ?? null);
-    setAddress(p?.address ?? '');
-    setNote(p?.note ?? '');
     setOpen(true);
   };
 
-  const save = () => {
-    const values = { title: title.trim(), category, address: address.trim() || null, note: note.trim() || null, visited: true };
-    const req = editing ? places.update(editing.id, values) : places.insert({ ...values, position: topPosition() });
-    req.then(() => setOpen(false)).catch(alertErr);
-  };
+  const save = (v: PlaceDraft) =>
+    editing ? places.update(editing.id, v) : places.insert({ ...v, visited: true, position: topPlacePosition(places.rows) });
 
   const reorder = (next: Place[]) => {
     const pos = new Map(next.map((p, i) => [p.id, i]));
@@ -125,25 +111,14 @@ export default function Places() {
         />
       </ScrollView>
 
-      <Sheet
+      <PlaceSheet
         visible={open}
         onClose={() => setOpen(false)}
+        initial={editing}
         title={editing ? 'Редактировать' : 'Где мы были'}
-        footer={<Button label={editing ? 'Сохранить' : 'Добавить'} disabled={!title.trim()} onPress={save} />}
-      >
-        <FieldLabel required>Название</FieldLabel>
-        <Input value={title} onChangeText={setTitle} placeholder="Например, концерт или поездка 2024" />
-        <FieldLabel optional>Тип</FieldLabel>
-        <ChipRow>
-          {CATEGORIES.map((cat) => (
-            <Chip key={cat} label={cat} size="sm" selected={category === cat} onPress={() => setCategory(category === cat ? null : cat)} />
-          ))}
-        </ChipRow>
-        <FieldLabel optional>Адрес или город</FieldLabel>
-        <Input value={address} onChangeText={setAddress} placeholder="Улица, город" />
-        <FieldLabel optional>Заметка</FieldLabel>
-        <Input value={note} onChangeText={setNote} placeholder="С кем были, что запомнилось…" multiline />
-      </Sheet>
+        submitLabel={editing ? 'Сохранить' : 'Добавить'}
+        onSave={save}
+      />
     </Screen>
   );
 }
