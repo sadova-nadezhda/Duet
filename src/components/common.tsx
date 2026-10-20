@@ -1,10 +1,11 @@
 import * as Haptics from 'expo-haptics';
-import { Check, Ellipsis, SmilePlus } from 'lucide-react-native';
+import { Check, Ellipsis, Pencil, SmilePlus, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
-import { Avatar, Chip, ChipRow } from './ui';
+import { Avatar, Chip, ChipRow, Txt } from './ui';
 
 export const haptic = () => {
   if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -35,31 +36,82 @@ export function CheckCircle({ checked, onPress }: { checked: boolean; onPress: (
   );
 }
 
-/** Кнопка «…» с меню «Редактировать / Удалить» */
+/** Кнопка «…» с нижним меню «Редактировать / Удалить» (удаление — с подтверждением) */
 export function ItemMenu({ onEdit, onDelete, title = 'Действия' }: { onEdit?: () => void; onDelete: () => void; title?: string }) {
-  const open = () => {
-    const confirmDelete = () =>
-      Alert.alert('Удалить?', 'Это действие нельзя отменить', [
-        { text: 'Отмена', style: 'cancel' },
-        { text: 'Удалить', style: 'destructive', onPress: onDelete },
-      ]);
-    if (Platform.OS === 'web') {
-      // eslint-disable-next-line no-alert
-      if (confirm('Удалить?')) onDelete();
-      return;
-    }
-    Alert.alert(title, undefined, [
-      ...(onEdit ? [{ text: 'Редактировать', onPress: onEdit }] : []),
-      { text: 'Удалить', style: 'destructive' as const, onPress: confirmDelete },
-      { text: 'Отмена', style: 'cancel' as const },
-    ]);
+  const insets = useSafeAreaInsets();
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const close = () => {
+    setOpen(false);
+    setConfirming(false);
   };
+  const run = (fn: () => void) => {
+    close();
+    fn();
+  };
+
   return (
-    <Pressable onPress={open} hitSlop={12} style={{ paddingHorizontal: 4 }}>
-      <Ellipsis size={20} color={colors.textMuted} />
+    <>
+      <Pressable
+        onPress={() => {
+          haptic();
+          setOpen(true);
+        }}
+        hitSlop={12}
+        style={{ paddingHorizontal: 4 }}
+      >
+        <Ellipsis size={20} color={colors.textMuted} />
+      </Pressable>
+      <Modal visible={open} animationType="fade" transparent onRequestClose={close} statusBarTranslucent>
+        <Pressable style={m.backdrop} onPress={close} />
+        <View style={[m.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <Txt variant="label" style={{ marginBottom: 8, paddingHorizontal: 4 }}>
+            {confirming ? 'Удалить? Это нельзя отменить' : title}
+          </Txt>
+          {confirming ? (
+            <>
+              <MenuRow icon={Trash2} label="Да, удалить" danger onPress={() => run(onDelete)} />
+              <MenuRow label="Отмена" onPress={() => setConfirming(false)} />
+            </>
+          ) : (
+            <>
+              {onEdit && <MenuRow icon={Pencil} label="Редактировать" onPress={() => run(onEdit)} />}
+              <MenuRow icon={Trash2} label="Удалить" danger onPress={() => setConfirming(true)} />
+            </>
+          )}
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+function MenuRow({ icon: Icon, label, danger, onPress }: { icon?: typeof Pencil; label: string; danger?: boolean; onPress: () => void }) {
+  const color = danger ? colors.danger : colors.text;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [m.row, pressed && { backgroundColor: colors.surfaceSoft }]}>
+      {Icon && <Icon size={20} color={color} />}
+      <Txt style={{ fontSize: 16, color }}>{label}</Txt>
     </Pressable>
   );
 }
+
+const m = StyleSheet.create({
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5,2,10,0.6)' },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#17111F',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, height: 56, paddingHorizontal: 12, borderRadius: 16 },
+});
 
 /** Аватары исполнителя: null (общее) → оба */
 export function AssigneeAvatars({ assignee }: { assignee: string | null }) {

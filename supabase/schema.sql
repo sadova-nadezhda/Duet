@@ -145,6 +145,7 @@ create table public.places (
   address    text,
   visited    boolean not null default false,
   note       text,
+  position   integer not null default 0, -- ручной порядок внутри вкладки (меньше — выше)
   created_at timestamptz not null default now()
 );
 

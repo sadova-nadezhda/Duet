@@ -65,6 +65,7 @@ export type Place = {
   address: string | null;
   visited: boolean;
   note: string | null;
+  position: number;
   created_at: string;
 };
 

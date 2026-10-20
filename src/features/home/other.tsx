@@ -173,7 +173,7 @@ export function ShoppingList({
     insert({ title: v }).catch(alertErr);
   };
 
-  const row = (r: ShoppingItem) => (
+  const row = (r: ShoppingItem, i: number, all: ShoppingItem[]) => (
     <View
       key={r.id}
       style={{
@@ -181,7 +181,7 @@ export function ShoppingList({
         alignItems: 'center',
         gap: 14,
         paddingVertical: 12,
-        borderBottomWidth: 1,
+        borderBottomWidth: i < all.length - 1 ? 1 : 0,
         borderBottomColor: colors.border,
       }}
     >
@@ -203,8 +203,7 @@ export function ShoppingList({
       />
       {!rows.length && <Empty icon={ShoppingCart} title="Список пуст" hint="Добавляйте продукты — партнёр увидит их сразу" />}
       <Card style={{ marginTop: 16, paddingVertical: 4, display: rows.length ? 'flex' : 'none' }}>
-        {active.map(row)}
-        {bought.map(row)}
+        {[...active, ...bought].map(row)}
       </Card>
       {bought.length > 0 && (
         <Pressable
