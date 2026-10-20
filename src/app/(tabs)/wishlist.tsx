@@ -93,7 +93,7 @@ export default function Wishlist() {
               <Pressable key={w.id} style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]} onPress={() => setOpened(w)}>
                 <View style={styles.imageBox}>
                   {w.image_url ? (
-                    <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="contain" transition={200} />
+                    <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
                   ) : (
                     <Txt variant="caption" style={{ color: c.textFaint }}>
                       без фото
@@ -167,8 +167,9 @@ function WishDetails(p: {
   return (
     <Sheet visible onClose={p.onClose} title={w.title}>
       {w.image_url && (
-        <View style={[styles.imageBox, { height: 240, marginTop: 12 }]}>
-          <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="contain" />
+        // На всю ширину листа: квадрат из imageBox заменяем на 4:3
+        <View style={[styles.imageBox, { width: '100%', aspectRatio: 4 / 3, marginTop: 12 }]}>
+          <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
       )}
       {formatPrice(w) && (
