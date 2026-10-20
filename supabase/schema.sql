@@ -118,7 +118,7 @@ create table public.wishes (
   id         uuid primary key default gen_random_uuid(),
   couple_id  uuid not null default public.my_couple_id() references public.couples(id) on delete cascade,
   owner      uuid not null default auth.uid() references public.profiles(id) on delete cascade,
-  category   text not null default 'gift' check (category in ('gift','see','dream')),
+  category   text not null default 'gift' check (category in ('gift','see','dream','trip')), -- see больше не показывается
   title      text not null,
   price      numeric,
   currency   text default '₸',
@@ -136,7 +136,7 @@ create table public.gift_reservations (
   created_at timestamptz not null default now()
 );
 
--- ---------- Места ----------
+-- ---------- Места: история, где пара уже была (планы поездок — в wishes, category = 'trip') ----------
 create table public.places (
   id         uuid primary key default gen_random_uuid(),
   couple_id  uuid not null default public.my_couple_id() references public.couples(id) on delete cascade,

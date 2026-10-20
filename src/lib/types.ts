@@ -43,7 +43,8 @@ export type Reminder = {
 export type ShoppingItem = { id: string; title: string; qty: string | null; checked: boolean; created_at: string };
 export type Recipe = { id: string; title: string; url: string | null; notes: string | null; created_at: string };
 
-export type WishCategory = 'gift' | 'see' | 'dream';
+/** see — старый раздел «Посмотреть», в интерфейсе больше не показывается */
+export type WishCategory = 'gift' | 'see' | 'trip' | 'dream';
 export type Wish = {
   id: string;
   owner: string;
