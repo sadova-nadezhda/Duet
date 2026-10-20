@@ -1,4 +1,4 @@
-# Веб-версия Duet на Netlify
+# Веб-версия Duo на Netlify
 [build]
   command = "npx expo export --platform web"
   publish = "dist"

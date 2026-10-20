@@ -1,38 +1,26 @@
 import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-  Manrope_800ExtraBold,
+  Geologica_300Light,
+  Geologica_400Regular,
+  Geologica_500Medium,
+  Geologica_600SemiBold,
   useFonts,
-} from '@expo-google-fonts/manrope';
-import { DarkTheme, SplashScreen, Stack, ThemeProvider } from 'expo-router';
+} from '@expo-google-fonts/geologica';
+import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { useColorScheme, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Background, Txt } from '@/components/ui';
+import { Txt } from '@/components/ui';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import '@/lib/webAlert';
-import { colors } from '@/lib/theme';
+import { useColors } from '@/lib/theme';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 
 SplashScreen.preventAutoHideAsync();
 
-const navTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: 'transparent',
-    primary: colors.accent,
-    card: colors.bg,
-    text: colors.text,
-    border: colors.border,
-  },
-};
-
 function RootStack() {
   const { loading, session, me } = useAuth();
+  const c = useColors();
   const signedIn = Boolean(session);
   const paired = Boolean(me?.couple_id);
 
@@ -43,7 +31,7 @@ function RootStack() {
   if (loading) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
       <Stack.Screen name="index" />
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" />
@@ -54,32 +42,39 @@ function RootStack() {
       <Stack.Protected guard={signedIn && paired}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="places" />
       </Stack.Protected>
     </Stack>
   );
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({ Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold });
+  const [fontsLoaded] = useFonts({ Geologica_300Light, Geologica_400Regular, Geologica_500Medium, Geologica_600SemiBold });
+  const scheme = useColorScheme();
+  const c = useColors();
+
+  const navTheme = useMemo(() => {
+    const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return { ...base, colors: { ...base.colors, background: c.bg, primary: c.accent, card: c.bg, text: c.text, border: c.border } };
+  }, [scheme, c]);
 
   if (!fontsLoaded) return null;
 
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navTheme}>
-        <StatusBar style="light" />
-        <Background />
-        {isSupabaseConfigured ? (
-          <AuthProvider>
-            <RootStack />
-          </AuthProvider>
-        ) : (
-          <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 12 }}>
-            <Txt variant="h2">Нужна настройка</Txt>
-            <Txt variant="muted">Создайте файл .env по образцу .env.example (ключи Supabase и TMDB) и перезапустите `npx expo start`.</Txt>
-          </View>
-        )}
+        <StatusBar style="auto" />
+        <View style={{ flex: 1, backgroundColor: c.bg }}>
+          {isSupabaseConfigured ? (
+            <AuthProvider>
+              <RootStack />
+            </AuthProvider>
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', padding: 32, gap: 12 }}>
+              <Txt variant="h2">Нужна настройка</Txt>
+              <Txt variant="muted">Создайте файл .env по образцу .env.example (ключи Supabase и TMDB) и перезапустите `npx expo start`.</Txt>
+            </View>
+          )}
+        </View>
       </ThemeProvider>
     </SafeAreaProvider>
   );

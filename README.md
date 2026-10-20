@@ -1,4 +1,4 @@
-# Duet — приложение для пары (iOS + Android)
+# Duo — приложение для пары (iOS + Android)
 
 Expo SDK 57 · React Native · Expo Router · Supabase · TMDB
 

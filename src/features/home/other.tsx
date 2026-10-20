@@ -1,10 +1,9 @@
-import { Bell, ChefHat, ExternalLink, ShoppingCart, Trash2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { AssigneeAvatars, CheckCircle, ItemMenu, PersonChips } from '@/components/common';
-import { Button, Card, Chip, ChipRow, Empty, FieldLabel, Input, Sheet, Toggle, Txt } from '@/components/ui';
+import { Button, Card, Chip, ChipRow, Empty, FieldLabel, Input, ListRow, Sheet, Toggle, Txt } from '@/components/ui';
 import { WEEKDAYS_SHORT } from '@/lib/dates';
-import { colors } from '@/lib/theme';
+import { fonts, useColors } from '@/lib/theme';
 import type { Recipe, Reminder, ShoppingItem } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -34,36 +33,22 @@ export function RemindersList({
 }) {
   return (
     <View>
-      <Txt variant="muted" style={{ marginBottom: 16, lineHeight: 21 }}>
-        Ежедневные напоминания или по конкретным дням недели — придёт уведомление в выбранное время.
+      <Txt variant="muted" style={{ marginBottom: 14 }}>
+        Уведомление придёт в выбранное время: каждый день или по нужным дням недели.
       </Txt>
-      {!rows.length && <Empty icon={Bell} title="Нет напоминаний" hint="Например: «Выпить витаминки» каждый день в 09:00" />}
+      {!rows.length && <Empty title="Нет напоминаний" hint="Например: «Выпить витаминки» каждый день в 09:00" />}
       {rows.map((r) => (
-        <Card key={r.id} style={{ marginBottom: 12, paddingVertical: 14 }} onPress={() => onEdit(r)}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
-                backgroundColor: colors.accentSoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Bell size={20} color={colors.accentLight} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Txt variant="title" style={{ fontSize: 17 }}>
-                {r.title}
-              </Txt>
-              <Txt variant="caption" style={{ marginTop: 2, fontSize: 13 }}>
-                {daysLabel(r.days)} · {r.time}
-              </Txt>
+        <Card key={r.id} onPress={() => onEdit(r)} style={{ marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            {/* Время — главное в напоминании, поэтому крупно и тонко слева */}
+            <Txt style={{ fontFamily: fonts.light, fontSize: 28, letterSpacing: -0.8, opacity: r.enabled ? 1 : 0.35 }}>{r.time}</Txt>
+            <View style={{ flex: 1, opacity: r.enabled ? 1 : 0.35 }}>
+              <Txt variant="title">{r.title}</Txt>
+              <Txt variant="muted">{daysLabel(r.days)}</Txt>
             </View>
             <AssigneeAvatars assignee={r.assignee} />
             <Toggle value={r.enabled} onChange={(enabled) => update(r.id, { enabled }).catch(alertErr)} />
-            <ItemMenu onDelete={() => remove(r.id).catch(alertErr)} />
+            <ItemMenu title={r.title} onEdit={() => onEdit(r)} onDelete={() => remove(r.id).catch(alertErr)} />
           </View>
         </Card>
       ))}
@@ -162,6 +147,7 @@ export function ShoppingList({
   update: (id: string, v: Partial<ShoppingItem>) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }) {
+  const c = useColors();
   const [title, setTitle] = useState('');
   const active = rows.filter((r) => !r.checked);
   const bought = rows.filter((r) => r.checked);
@@ -174,21 +160,13 @@ export function ShoppingList({
   };
 
   const row = (r: ShoppingItem, i: number, all: ShoppingItem[]) => (
-    <View
-      key={r.id}
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        paddingVertical: 12,
-        borderBottomWidth: i < all.length - 1 ? 1 : 0,
-        borderBottomColor: colors.border,
-      }}
-    >
-      <CheckCircle checked={r.checked} onPress={() => update(r.id, { checked: !r.checked }).catch(alertErr)} />
-      <Txt style={[{ flex: 1, fontSize: 16 }, r.checked && { color: colors.textFaint, textDecorationLine: 'line-through' }]}>{r.title}</Txt>
-      <ItemMenu onDelete={() => remove(r.id).catch(alertErr)} />
-    </View>
+    <ListRow key={r.id} last={i === all.length - 1} style={{ paddingVertical: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <CheckCircle checked={r.checked} onPress={() => update(r.id, { checked: !r.checked }).catch(alertErr)} />
+        <Txt style={[{ flex: 1, fontSize: 16 }, r.checked && { color: c.textFaint, textDecorationLine: 'line-through' }]}>{r.title}</Txt>
+        <ItemMenu title={r.title} onDelete={() => remove(r.id).catch(alertErr)} />
+      </View>
+    </ListRow>
   );
 
   return (
@@ -196,22 +174,25 @@ export function ShoppingList({
       <Input
         value={title}
         onChangeText={setTitle}
-        placeholder="Добавить продукт и нажать Enter"
+        placeholder="Что купить? Введите и нажмите Enter"
         onSubmitEditing={add}
         returnKeyType="done"
         submitBehavior="submit"
       />
-      {!rows.length && <Empty icon={ShoppingCart} title="Список пуст" hint="Добавляйте продукты — партнёр увидит их сразу" />}
-      <Card style={{ marginTop: 16, paddingVertical: 4, display: rows.length ? 'flex' : 'none' }}>
-        {[...active, ...bought].map(row)}
-      </Card>
+      {!rows.length && <Empty title="Список пуст" hint="Добавляйте продукты, партнёр увидит их сразу" />}
+      {rows.length > 0 && (
+        // Покупки — короткие строки, поэтому одна общая карточка с разделителями, а не карточка на каждую
+        <Card style={{ marginTop: 16, paddingVertical: 2 }}>{[...active, ...bought].map(row)}</Card>
+      )}
       {bought.length > 0 && (
         <Pressable
           onPress={() => Promise.all(bought.map((b) => remove(b.id))).catch(alertErr)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', marginTop: 16 }}
+          style={({ pressed }) => [{ marginTop: 20, alignSelf: 'flex-start' }, pressed && { opacity: 0.5 }]}
+          hitSlop={8}
         >
-          <Trash2 size={16} color={colors.textMuted} />
-          <Txt variant="muted">Убрать купленное ({bought.length})</Txt>
+          <Txt variant="muted" style={{ textDecorationLine: 'underline' }}>
+            Убрать купленное ({bought.length})
+          </Txt>
         </Pressable>
       )}
     </View>
@@ -228,30 +209,30 @@ export function RecipesList({
   remove: (id: string) => Promise<void>;
   onEdit: (r: Recipe) => void;
 }) {
-  if (!rows.length) return <Empty icon={ChefHat} title="Рецептов нет" hint="Сохраняйте любимые блюда и ссылки на рецепты" />;
+  if (!rows.length) return <Empty title="Рецептов нет" hint="Сохраняйте любимые блюда и ссылки на рецепты" />;
+  return <RecipeRows rows={rows} remove={remove} onEdit={onEdit} />;
+}
+
+function RecipeRows({ rows, remove, onEdit }: { rows: Recipe[]; remove: (id: string) => Promise<void>; onEdit: (r: Recipe) => void }) {
+  const c = useColors();
   return (
-    <View style={{ gap: 12 }}>
+    <View>
       {rows.map((r) => (
-        <Card key={r.id}>
+        <Card key={r.id} style={{ marginBottom: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <ChefHat size={20} color={colors.accentLight} />
             <Txt variant="title" style={{ flex: 1 }}>
               {r.title}
             </Txt>
-            <ItemMenu onEdit={() => onEdit(r)} onDelete={() => remove(r.id).catch(alertErr)} />
+            <ItemMenu title={r.title} onEdit={() => onEdit(r)} onDelete={() => remove(r.id).catch(alertErr)} />
           </View>
           {!!r.notes && (
-            <Txt variant="muted" style={{ marginTop: 10, lineHeight: 20 }}>
+            <Txt variant="muted" style={{ marginTop: 6 }}>
               {r.notes}
             </Txt>
           )}
           {!!r.url && (
-            <Pressable
-              onPress={() => Linking.openURL(r.url!)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}
-            >
-              <ExternalLink size={14} color={colors.accentLight} />
-              <Txt style={{ color: colors.accentLight }} numberOfLines={1}>
+            <Pressable onPress={() => Linking.openURL(r.url!)} style={{ marginTop: 8, alignSelf: 'flex-start' }} hitSlop={8}>
+              <Txt style={{ color: c.accentLight }} numberOfLines={1}>
                 Открыть рецепт
               </Txt>
             </Pressable>

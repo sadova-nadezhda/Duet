@@ -1,51 +1,60 @@
 import { useRouter } from 'expo-router';
-import { Heart, Settings } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Settings } from 'lucide-react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts } from '@/lib/theme';
+import { fonts, useColors } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
-import { Avatar, IconButton } from './ui';
+import { Avatar, ICON_STROKE } from './ui';
 
-export const APP_NAME = 'Duet';
+export const APP_NAME = 'Duo';
 
-export function Logo({ size = 26 }: { size?: number }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-      <Text style={{ color: colors.text, fontFamily: fonts.extrabold, fontSize: size, letterSpacing: -0.5 }}>{APP_NAME}</Text>
-      <Heart size={size * 0.38} color={colors.accent} fill={colors.accent} style={{ marginLeft: 2, marginTop: 2 }} />
-    </View>
-  );
+export function Logo({ size = 20 }: { size?: number }) {
+  const c = useColors();
+  return <Text style={{ color: c.text, fontFamily: fonts.medium, fontSize: size, letterSpacing: -size * 0.03 }}>{APP_NAME}</Text>;
 }
 
+/** Шапка: слово-логотип, пара аватаров (я — заливка, партнёр — контур) и шестерёнка; и то и другое ведёт в настройки */
 export function AppHeader() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const c = useColors();
   const { me, partner } = useAuth();
+  const openSettings = () => router.push('/settings');
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + 8 }]}>
-      <Logo />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View style={{ flexDirection: 'row' }}>
-          <Avatar name={me?.name ?? ''} url={me?.avatar_url} size={44} />
-          <View style={{ marginLeft: -12 }}>
-            <Avatar name={partner?.name ?? '+'} url={partner?.avatar_url} size={44} dim={!partner} />
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: insets.top + 12,
+        paddingBottom: 12,
+        backgroundColor: c.bg,
+      }}
+    >
+      <Logo size={24} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        <Pressable
+          onPress={openSettings}
+          hitSlop={8}
+          accessibilityLabel="Профиль"
+          style={({ pressed }) => [{ flexDirection: 'row' }, pressed && { opacity: 0.6 }]}
+        >
+          <Avatar name={me?.name ?? ''} url={me?.avatar_url} size={34} />
+          <View style={{ marginLeft: -10 }}>
+            <Avatar name={partner?.name ?? '+'} url={partner?.avatar_url} size={34} dim />
           </View>
-        </View>
-        <IconButton icon={Settings} size={48} color={colors.accentLight} onPress={() => router.push('/settings')} />
+        </Pressable>
+        {/* Без рамки-кнопки вокруг: правый край иконки совпадает с краем контента (и с «+» ниже) */}
+        <Pressable
+          onPress={openSettings}
+          hitSlop={12}
+          accessibilityLabel="Настройки"
+          style={({ pressed }) => pressed && { opacity: 0.5 }}
+        >
+          <Settings size={26} color={c.text} strokeWidth={ICON_STROKE} />
+        </Pressable>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(17,12,24,0.85)',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-});

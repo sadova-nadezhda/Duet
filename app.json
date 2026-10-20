@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Duet",
+    "name": "Duo",
     "slug": "duet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.duet.couple"
@@ -23,10 +23,9 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single",
-      "name": "Duet",
-      "shortName": "Duet",
-      "themeColor": "#110C18",
-      "backgroundColor": "#110C18"
+      "name": "Duo",
+      "shortName": "Duo",
+      "backgroundColor": "#FFFFFF"
     },
     "plugins": [
       "expo-router",
@@ -34,7 +33,7 @@
       [
         "expo-notifications",
         {
-          "color": "#8B5CF6"
+          "color": "#2433FF"
         }
       ],
       "expo-image",
@@ -49,7 +48,7 @@
       "expo-status-bar"
     ],
     "scheme": "duet",
-    "backgroundColor": "#110C18",
+    "backgroundColor": "#FFFFFF",
     "experiments": {
       "typedRoutes": false
     }

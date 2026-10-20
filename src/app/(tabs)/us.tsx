@@ -1,19 +1,20 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { CalendarHeart, Clapperboard, Heart, MessageCircleHeart, Send } from 'lucide-react-native';
+import { ArrowUp } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { ItemMenu } from '@/components/common';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
-import { Avatar, Card, Input, Txt, Screen } from '@/components/ui';
+import { Input, PersonMark, Txt, Screen } from '@/components/ui';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { daysBetween, humanDate, plural } from '@/lib/dates';
-import { colors, fonts, radius } from '@/lib/theme';
+import { fonts, makeStyles, useColors } from '@/lib/theme';
 import type { Movie, Note, Task, Wish } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function Us() {
   const router = useRouter();
+  const c = useColors();
+  const s = useStyles();
   const { me, partner, couple, nameOf } = useAuth();
   const notes = useCoupleTable<Note>('notes', { ascending: false });
   const movies = useCoupleTable<Movie>('movies');
@@ -30,51 +31,53 @@ export default function Us() {
     notes.insert({ text: v }).catch((e) => Alert.alert('Ошибка', e.message));
   };
 
+  const watched = movies.rows.filter((m) => m.status === 'watched').length;
+  const done = tasks.rows.filter((t) => t.done || t.last_done).length;
   const stats = [
-    { icon: Clapperboard, value: movies.rows.filter((m) => m.status === 'watched').length, label: 'фильмов вместе' },
-    { icon: Heart, value: tasks.rows.filter((t) => t.done || t.last_done).length, label: 'дел сделано' },
-    { icon: CalendarHeart, value: wishes.rows.length, label: 'желаний' },
+    { value: watched, label: plural(watched, 'фильм', 'фильма', 'фильмов') },
+    { value: done, label: plural(done, 'дело сделано', 'дела сделано', 'дел сделано') },
+    { value: wishes.rows.length, label: plural(wishes.rows.length, 'желание', 'желания', 'желаний') },
   ];
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE }} keyboardShouldPersistTaps="handled">
-        <LinearGradient colors={['rgba(139,92,246,0.35)', 'rgba(139,92,246,0.06)']} style={styles.hero}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar name={me?.name ?? ''} url={me?.avatar_url} size={72} />
-            <View style={styles.heart}>
-              <Heart size={20} color="#fff" fill="#fff" />
-            </View>
-            <Avatar name={partner?.name ?? '?'} url={partner?.avatar_url} size={72} dim={!partner} />
-          </View>
-          <Txt variant="title" style={{ marginTop: 14 }}>
-            {me?.name} & {partner?.name ?? '…'}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24 }}>
+          <PersonMark mine />
+          <Txt variant="label" style={{ color: c.text }}>
+            {me?.name}
           </Txt>
-          {days != null ? (
-            <>
-              <Txt style={{ fontFamily: fonts.extrabold, fontSize: 48, color: colors.text, marginTop: 6, letterSpacing: -1 }}>{days}</Txt>
-              <Txt variant="muted">
-                {plural(days, 'день', 'дня', 'дней')} вместе · с {humanDate(couple!.together_since!)}
-              </Txt>
-            </>
-          ) : (
-            <Pressable onPress={() => router.push('/settings')} style={{ marginTop: 10 }}>
-              <Txt style={{ color: colors.accentLight }}>Указать дату начала отношений →</Txt>
-            </Pressable>
-          )}
-        </LinearGradient>
+          <PersonMark mine={false} />
+          <Txt variant="label" style={{ color: c.text }}>
+            {partner?.name ?? 'ждём партнёра'}
+          </Txt>
+        </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-          {stats.map((s) => (
-            <Card key={s.label} style={{ flex: 1, padding: 14, alignItems: 'flex-start' }}>
-              <s.icon size={18} color={colors.accentLight} />
-              <Txt style={{ fontFamily: fonts.extrabold, fontSize: 24, marginTop: 8 }}>{s.value}</Txt>
-              <Txt variant="caption">{s.label}</Txt>
-            </Card>
+        {days != null ? (
+          <>
+            <Txt style={s.days}>{days.toLocaleString('ru-RU')}</Txt>
+            <Txt variant="title" style={{ marginTop: 4 }}>
+              {plural(days, 'день', 'дня', 'дней')} вместе
+            </Txt>
+            <Txt variant="muted">с {humanDate(couple!.together_since!)} {couple!.together_since!.slice(0, 4)}</Txt>
+          </>
+        ) : (
+          <Pressable onPress={() => router.push('/settings')} style={{ marginTop: 16 }} hitSlop={8}>
+            <Txt style={s.days}>—</Txt>
+            <Txt style={{ color: c.accentLight, marginTop: 4 }}>Укажите дату начала отношений</Txt>
+          </Pressable>
+        )}
+
+        <View style={s.stats}>
+          {stats.map((st, i) => (
+            <View key={st.label} style={[s.stat, i > 0 ? s.statDivider : { paddingLeft: 0 }]}>
+              <Txt style={{ fontFamily: fonts.light, fontSize: 28, letterSpacing: -0.8 }}>{st.value}</Txt>
+              <Txt variant="caption">{st.label}</Txt>
+            </View>
           ))}
         </View>
 
-        <Txt variant="label" style={{ marginTop: 28, marginBottom: 12 }}>
+        <Txt variant="title" style={{ marginTop: 36, marginBottom: 12 }}>
           Записки друг другу
         </Txt>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -86,28 +89,33 @@ export default function Us() {
             onSubmitEditing={send}
             returnKeyType="send"
           />
-          <Pressable onPress={send} style={styles.send}>
-            <Send size={20} color="#fff" />
+          <Pressable
+            onPress={send}
+            disabled={!text.trim()}
+            style={({ pressed }) => [s.send, { opacity: !text.trim() ? 0.3 : pressed ? 0.7 : 1 }]}
+            accessibilityLabel="Отправить"
+          >
+            <ArrowUp size={22} color={c.onAccent} strokeWidth={1.75} />
           </Pressable>
         </View>
 
         {!notes.rows.length && (
-          <View style={{ alignItems: 'center', marginTop: 28, gap: 8 }}>
-            <MessageCircleHeart size={32} color={colors.accentBorder} />
-            <Txt variant="muted">Здесь будут ваши записки</Txt>
-          </View>
+          <Txt variant="muted" style={{ marginTop: 20 }}>
+            Здесь будут ваши записки
+          </Txt>
         )}
         {notes.rows.map((n) => {
           const mine = n.author === me?.id;
           return (
-            <View key={n.id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
-              <Txt style={{ fontSize: 15, lineHeight: 21 }}>{n.text}</Txt>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, gap: 12 }}>
-                <Txt variant="caption">
-                  {nameOf(n.author)} · {new Date(n.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+            <View key={n.id} style={s.note}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <PersonMark mine={mine} size={8} />
+                <Txt variant="caption" style={{ flex: 1 }}>
+                  {nameOf(n.author)}, {new Date(n.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
                 </Txt>
-                {mine && <ItemMenu onDelete={() => notes.remove(n.id)} />}
+                {mine && <ItemMenu title="Записка" onDelete={() => notes.remove(n.id)} />}
               </View>
+              <Txt style={{ fontSize: 16, lineHeight: 23, marginTop: 6 }}>{n.text}</Txt>
             </View>
           );
         })}
@@ -116,28 +124,11 @@ export default function Us() {
   );
 }
 
-const styles = StyleSheet.create({
-  hero: { marginTop: 20, borderRadius: radius.xl, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: colors.accentBorder },
-  heart: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: -10,
-    zIndex: 2,
-    borderWidth: 3,
-    borderColor: colors.bg,
-  },
-  send: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  bubble: { marginTop: 12, padding: 14, borderRadius: 20, maxWidth: '85%' },
-  mine: { alignSelf: 'flex-end', backgroundColor: colors.accentSoft, borderBottomRightRadius: 6 },
-  theirs: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderBottomLeftRadius: 6,
-  },
-});
+const useStyles = makeStyles((c) => ({
+  days: { fontFamily: fonts.light, fontSize: 96, lineHeight: 100, letterSpacing: -4, color: c.text, marginTop: 12 },
+  stats: { flexDirection: 'row', marginTop: 32, borderTopWidth: 1, borderBottomWidth: 1, borderColor: c.border },
+  stat: { flex: 1, paddingVertical: 16, paddingHorizontal: 12, gap: 2 },
+  statDivider: { borderLeftWidth: 1, borderLeftColor: c.border },
+  send: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+  note: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+}));

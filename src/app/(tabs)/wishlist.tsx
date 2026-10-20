@@ -1,17 +1,17 @@
 import { Image } from 'expo-image';
-import { Eye, Gift, Info, Link2, Lock, Sparkles, Wand2 } from 'lucide-react-native';
+import { Wand2 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, View, ScrollView } from 'react-native';
 import { PhotoField } from '@/components/PhotoField';
 import { deletePhoto } from '@/lib/upload';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
 import {
-  Avatar,
   Button,
   Chip,
   ChipRow,
   Empty,
   FieldLabel,
+  ICON_STROKE,
   Input,
   Pills,
   ScreenTitle,
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { fetchLinkPreview } from '@/lib/linkPreview';
-import { colors, fonts, radius } from '@/lib/theme';
+import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
 import type { GiftReservation, Wish, WishCategory } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -31,6 +31,8 @@ const formatPrice = (w: Wish) => (w.price != null ? `${Number(w.price).toLocaleS
 
 export default function Wishlist() {
   const { me, partner } = useAuth();
+  const c = useColors();
+  const styles = useStyles();
   const wishes = useCoupleTable<Wish>('wishes', { ascending: false });
   const reservations = useCoupleTable<GiftReservation>('gift_reservations', { noCoupleFilter: true });
 
@@ -47,72 +49,66 @@ export default function Wishlist() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE }}>
-        <ScreenTitle title="Наш вишлист" onAdd={() => (setEditing(null), setAddOpen(true))} />
+        <ScreenTitle title="Желания" onAdd={() => (setEditing(null), setAddOpen(true))} />
         <Segmented
           value={cat}
           onChange={setCat}
           items={[
-            { key: 'gift', label: 'Подарки', icon: Gift },
-            { key: 'see', label: 'Посмотреть', icon: Eye },
-            { key: 'dream', label: 'Мечты', icon: Sparkles },
+            { key: 'gift', label: 'Подарки' },
+            { key: 'dream', label: 'Мечты' },
           ]}
         />
         <Pills
           value={owner}
           onChange={setOwner}
           items={[
-            { key: 'me', label: 'Хочу я', prefix: <Avatar name={me?.name ?? 'Я'} size={24} dim={owner !== 'me'} /> },
-            ...(partner
-              ? [
-                  {
-                    key: 'partner' as const,
-                    label: `Хочет ${partner.name}`,
-                    prefix: <Avatar name={partner.name} size={24} dim={owner !== 'partner'} />,
-                  },
-                ]
-              : []),
+            { key: 'me', label: 'Хочу я' },
+            ...(partner ? [{ key: 'partner' as const, label: `Хочет ${partner.name}` }] : []),
           ]}
         />
-        {cat === 'gift' && (
-          <View style={styles.notice}>
-            <Lock size={16} color={colors.textFaint} />
-            <Txt variant="caption" style={{ flex: 1, fontSize: 13 }}>
-              Подготовка подарка видна только дарителю
-            </Txt>
-            <Info size={16} color={colors.textFaint} />
-          </View>
+        {cat === 'gift' && owner === 'partner' && (
+          <Txt variant="caption" style={{ marginTop: -4, marginBottom: 16 }}>
+            Что вы готовите в подарок, {partner?.name ?? 'партнёр'} не видит.
+          </Txt>
         )}
 
         {!list.length ? (
           <Empty
-            icon={Gift}
-            title={owner === 'me' ? 'Добавьте первое желание' : `У ${partner?.name ?? 'партнёра'} пока пусто`}
-            hint="Вставьте ссылку на товар — картинка и название подтянутся сами"
+            title={
+              owner === 'partner'
+                ? `У ${partner?.name ?? 'партнёра'} пока пусто`
+                : cat === 'dream'
+                  ? 'Добавьте первую мечту'
+                  : 'Добавьте первое желание'
+            }
+            hint={
+              cat === 'dream'
+                ? 'Большие цели: машина, свой дом, отпуск'
+                : 'Вставьте ссылку на товар, картинка и название подтянутся сами'
+            }
           />
         ) : (
           <View style={styles.grid}>
             {list.map((w) => (
-              <Pressable key={w.id} style={styles.cell} onPress={() => setOpened(w)}>
-                <View style={styles.wishCard}>
-                  <View style={styles.imageBox}>
-                    {w.image_url ? (
-                      <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="contain" transition={200} />
-                    ) : (
-                      <Gift size={40} color={colors.accentBorder} />
-                    )}
-                    {owner === 'partner' && reservedIds.has(w.id) && (
-                      <View style={styles.badge}>
-                        <Txt style={{ fontSize: 11, fontFamily: fonts.bold, color: '#fff' }}>🎁 Вы дарите</Txt>
-                      </View>
-                    )}
-                  </View>
-                  <View style={{ padding: 14, gap: 6 }}>
-                    <Txt style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20 }} numberOfLines={3}>
-                      {w.title}
+              <Pressable key={w.id} style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]} onPress={() => setOpened(w)}>
+                <View style={styles.imageBox}>
+                  {w.image_url ? (
+                    <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="contain" transition={200} />
+                  ) : (
+                    <Txt variant="caption" style={{ color: c.textFaint }}>
+                      без фото
                     </Txt>
-                    {formatPrice(w) && <Txt style={{ color: colors.accentLight, fontFamily: fonts.bold }}>{formatPrice(w)}</Txt>}
-                  </View>
+                  )}
+                  {owner === 'partner' && reservedIds.has(w.id) && (
+                    <View style={styles.badge}>
+                      <Txt style={{ fontSize: 11, fontFamily: fonts.medium, color: c.onAccent }}>Вы дарите</Txt>
+                    </View>
+                  )}
                 </View>
+                <Txt style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 19, marginTop: 8 }} numberOfLines={3}>
+                  {w.title}
+                </Txt>
+                {formatPrice(w) && <Txt variant="muted">{formatPrice(w)}</Txt>}
               </Pressable>
             ))}
           </View>
@@ -167,29 +163,30 @@ function WishDetails(p: {
   onCancelReservation: () => void;
 }) {
   const { wish: w, reservation: r } = p;
+  const styles = useStyles();
   return (
     <Sheet visible onClose={p.onClose} title={w.title}>
       {w.image_url && (
-        <View style={[styles.imageBox, { height: 220, borderRadius: radius.lg, marginTop: 12 }]}>
+        <View style={[styles.imageBox, { height: 240, marginTop: 12 }]}>
           <Image source={{ uri: w.image_url }} style={StyleSheet.absoluteFill} contentFit="contain" />
         </View>
       )}
       {formatPrice(w) && (
-        <Txt style={{ color: colors.accentLight, fontFamily: fonts.extrabold, fontSize: 22, marginTop: 16 }}>{formatPrice(w)}</Txt>
+        <Txt style={{ fontFamily: fonts.light, fontSize: 32, letterSpacing: -1, marginTop: 16 }}>{formatPrice(w)}</Txt>
       )}
       {!!w.note && (
-        <Txt variant="muted" style={{ marginTop: 10, lineHeight: 21 }}>
+        <Txt style={{ marginTop: 10, lineHeight: 22 }}>
           {w.note}
         </Txt>
       )}
       <View style={{ gap: 10, marginTop: 20 }}>
-        {!!w.url && <Button label="Открыть ссылку" variant="ghost" icon={Link2} onPress={() => Linking.openURL(w.url!)} />}
+        {!!w.url && <Button label="Открыть ссылку" variant="ghost" onPress={() => Linking.openURL(w.url!)} />}
 
-        {!p.isMine && w.category === 'gift' && !r && <Button label="Я подарю 🎁" onPress={() => p.onReserve('planned')} />}
+        {!p.isMine && w.category === 'gift' && !r && <Button label="Я подарю" onPress={() => p.onReserve('planned')} />}
         {!p.isMine && r && (
           <>
-            <Txt variant="muted" style={{ textAlign: 'center' }}>
-              {r.status === 'bought' ? '✅ Куплено — партнёр не видит эту отметку' : '🤫 Вы готовите этот подарок — партнёр не видит'}
+            <Txt variant="muted">
+              {r.status === 'bought' ? 'Куплено. Партнёр не видит эту отметку.' : 'Вы готовите этот подарок. Партнёр не видит.'}
             </Txt>
             {r.status !== 'bought' && <Button label="Отметить «Куплено»" onPress={() => p.onUpdateReservation('bought')} />}
             <Button label="Отменить бронь" variant="ghost" onPress={p.onCancelReservation} />
@@ -229,6 +226,8 @@ function WishSheet({
   const [image, setImage] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const c = useColors();
+  const styles = useStyles();
 
   useEffect(() => {
     if (!visible) return;
@@ -298,7 +297,6 @@ function WishSheet({
         onChange={setCategory}
         items={[
           { key: 'gift', label: 'Подарок' },
-          { key: 'see', label: 'Посмотреть' },
           { key: 'dream', label: 'Мечта' },
         ]}
       />
@@ -313,8 +311,8 @@ function WishSheet({
           style={{ flex: 1 }}
           onBlur={autofill}
         />
-        <Pressable onPress={autofill} style={styles.magic}>
-          {loading ? <ActivityIndicator color={colors.accentLight} /> : <Wand2 size={22} color={colors.accentLight} />}
+        <Pressable onPress={autofill} style={styles.magic} accessibilityLabel="Заполнить по ссылке">
+          {loading ? <ActivityIndicator color={c.textMuted} /> : <Wand2 size={22} color={c.text} strokeWidth={ICON_STROKE} />}
         </Pressable>
       </View>
       <FieldLabel required>Название</FieldLabel>
@@ -336,38 +334,33 @@ function WishSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  notice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    height: 46,
+const useStyles = makeStyles((c) => ({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  cell: { width: '50%', paddingHorizontal: 6, marginBottom: 20 },
+  imageBox: {
+    aspectRatio: 1,
+    backgroundColor: c.surface,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -7 },
-  cell: { width: '50%', padding: 7 },
-  wishCard: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-  imageBox: { height: 170, backgroundColor: '#F7F5FA', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   badge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: colors.accent,
+    top: 8,
+    left: 8,
+    backgroundColor: c.accent,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   magic: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

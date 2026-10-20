@@ -1,37 +1,38 @@
 import * as Haptics from 'expo-haptics';
-import { Check, Ellipsis, Pencil, SmilePlus, Trash2 } from 'lucide-react-native';
+import { Check, Ellipsis, SmilePlus } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/lib/theme';
+import { fonts, makeStyles, useColors } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
-import { Avatar, Chip, ChipRow, Txt } from './ui';
+import { Chip, ChipRow, ICON_STROKE, PersonMark, Txt } from './ui';
 
 export const haptic = () => {
   if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 };
 
-/** Круглый чекбокс как в референсе */
+/** Круглая отметка: пустой контур → залитый акцентом с галочкой */
 export function CheckCircle({ checked, onPress }: { checked: boolean; onPress: () => void }) {
+  const c = useColors();
   return (
     <Pressable
-      hitSlop={10}
+      hitSlop={12}
       onPress={() => {
         haptic();
         onPress();
       }}
       style={{
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        borderWidth: 2,
-        borderColor: checked ? colors.accent : colors.accentBorder,
-        backgroundColor: checked ? colors.accent : 'transparent',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: checked ? c.accent : c.textFaint,
+        backgroundColor: checked ? c.accent : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      {checked && <Check size={18} color="#fff" strokeWidth={3} />}
+      {checked && <Check size={14} color={c.onAccent} strokeWidth={2.5} />}
     </Pressable>
   );
 }
@@ -39,6 +40,8 @@ export function CheckCircle({ checked, onPress }: { checked: boolean; onPress: (
 /** Кнопка «…» с нижним меню «Редактировать / Удалить» (удаление — с подтверждением) */
 export function ItemMenu({ onEdit, onDelete, title = 'Действия' }: { onEdit?: () => void; onDelete: () => void; title?: string }) {
   const insets = useSafeAreaInsets();
+  const c = useColors();
+  const m = useMenuStyles();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const close = () => {
@@ -59,24 +62,25 @@ export function ItemMenu({ onEdit, onDelete, title = 'Действия' }: { onE
         }}
         hitSlop={12}
         style={{ paddingHorizontal: 4 }}
+        accessibilityLabel="Действия"
       >
-        <Ellipsis size={20} color={colors.textMuted} />
+        <Ellipsis size={20} color={c.textMuted} strokeWidth={ICON_STROKE} />
       </Pressable>
       <Modal visible={open} animationType="fade" transparent onRequestClose={close} statusBarTranslucent>
         <Pressable style={m.backdrop} onPress={close} />
-        <View style={[m.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <Txt variant="label" style={{ marginBottom: 8, paddingHorizontal: 4 }}>
-            {confirming ? 'Удалить? Это нельзя отменить' : title}
+        <View style={[m.sheet, { paddingBottom: insets.bottom + 12 }]}>
+          <Txt variant="caption" numberOfLines={1} style={{ marginBottom: 4 }}>
+            {confirming ? 'Удалить без возможности вернуть?' : title}
           </Txt>
           {confirming ? (
             <>
-              <MenuRow icon={Trash2} label="Да, удалить" danger onPress={() => run(onDelete)} />
-              <MenuRow label="Отмена" onPress={() => setConfirming(false)} />
+              <MenuRow label="Удалить" danger onPress={() => run(onDelete)} />
+              <MenuRow label="Отмена" onPress={() => setConfirming(false)} last />
             </>
           ) : (
             <>
-              {onEdit && <MenuRow icon={Pencil} label="Редактировать" onPress={() => run(onEdit)} />}
-              <MenuRow icon={Trash2} label="Удалить" danger onPress={() => setConfirming(true)} />
+              {onEdit && <MenuRow label="Редактировать" onPress={() => run(onEdit)} />}
+              <MenuRow label="Удалить…" danger onPress={() => setConfirming(true)} last />
             </>
           )}
         </View>
@@ -85,42 +89,42 @@ export function ItemMenu({ onEdit, onDelete, title = 'Действия' }: { onE
   );
 }
 
-function MenuRow({ icon: Icon, label, danger, onPress }: { icon?: typeof Pencil; label: string; danger?: boolean; onPress: () => void }) {
-  const color = danger ? colors.danger : colors.text;
+function MenuRow({ label, danger, onPress, last }: { label: string; danger?: boolean; onPress: () => void; last?: boolean }) {
+  const c = useColors();
+  const m = useMenuStyles();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [m.row, pressed && { backgroundColor: colors.surfaceSoft }]}>
-      {Icon && <Icon size={20} color={color} />}
-      <Txt style={{ fontSize: 16, color }}>{label}</Txt>
+    <Pressable onPress={onPress} style={({ pressed }) => [m.row, last && { borderBottomWidth: 0 }, pressed && { opacity: 0.5 }]}>
+      <Txt style={{ fontSize: 17, color: danger ? c.danger : c.text }}>{label}</Txt>
     </Pressable>
   );
 }
 
-const m = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5,2,10,0.6)' },
+const useMenuStyles = makeStyles((c) => ({
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.overlay },
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#17111F',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
+    backgroundColor: c.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderColor: c.border,
+    paddingHorizontal: 20,
     paddingTop: 20,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, height: 56, paddingHorizontal: 12, borderRadius: 16 },
-});
+  row: { height: 56, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: c.border },
+}));
 
-/** Аватары исполнителя: null (общее) → оба */
+/** Чьё дело: ● я, ○ партнёр, ●○ общее */
 export function AssigneeAvatars({ assignee }: { assignee: string | null }) {
-  const { me, partner } = useAuth();
-  const people = assignee === null ? [me, partner].filter(Boolean) : [assignee === me?.id ? me : partner].filter(Boolean);
+  const { me } = useAuth();
+  const marks = assignee === null ? [true, false] : [assignee === me?.id];
   return (
-    <View style={{ flexDirection: 'row', gap: 4 }}>
-      {people.map((p) => (
-        <Avatar key={p!.id} name={p!.name} url={null} size={30} />
+    <View style={{ flexDirection: 'row', gap: 3 }}>
+      {marks.map((mine, i) => (
+        <PersonMark key={i} mine={mine} />
       ))}
     </View>
   );
@@ -131,6 +135,7 @@ const EMOJI = ['❤️', '🔥', '👍', '😂', '🙏', '😍'];
 /** Реакции партнёров на карточку */
 export function Reactions({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
   const { me } = useAuth();
+  const c = useColors();
   const [open, setOpen] = useState(false);
   const entries = Object.entries(value ?? {});
   const pick = (e: string) => {
@@ -143,22 +148,20 @@ export function Reactions({ value, onChange }: { value: Record<string, string>; 
     haptic();
   };
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
       {entries.map(([uid, e]) => (
-        <View
-          key={uid}
-          style={{ paddingHorizontal: 8, height: 28, borderRadius: 14, backgroundColor: colors.surfaceSoft, justifyContent: 'center' }}
-        >
-          <Text style={{ fontSize: 14 }}>{e}</Text>
+        <View key={uid} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <PersonMark mine={uid === me?.id} size={6} />
+          <Text style={{ fontSize: 15 }}>{e}</Text>
         </View>
       ))}
-      <Pressable onPress={() => setOpen(!open)} hitSlop={8}>
-        <SmilePlus size={20} color={colors.textFaint} />
+      <Pressable onPress={() => setOpen(!open)} hitSlop={8} accessibilityLabel="Реакция">
+        <SmilePlus size={18} color={c.textFaint} strokeWidth={ICON_STROKE} />
       </Pressable>
       {open &&
         EMOJI.map((e) => (
           <Pressable key={e} onPress={() => pick(e)} style={{ padding: 4 }}>
-            <Text style={{ fontSize: 20 }}>{e}</Text>
+            <Text style={{ fontSize: 20, fontFamily: fonts.regular }}>{e}</Text>
           </Pressable>
         ))}
     </View>
@@ -176,7 +179,7 @@ export function PersonChips({
 }) {
   const { me, partner } = useAuth();
   const opts: { id: string | null; label: string }[] = [
-    ...(includeShared ? [{ id: null, label: 'Общее' }] : []),
+    ...(includeShared ? [{ id: null, label: 'Вместе' }] : []),
     { id: me?.id ?? '', label: 'Я' },
     ...(partner ? [{ id: partner.id, label: partner.name }] : []),
   ];

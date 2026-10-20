@@ -93,4 +93,6 @@ export type MovieRating = {
   user_id: string;
   rating: number;
   comment: string | null;
+  /** Посмотрел(а) бы ещё раз; null — не ответил(а) */
+  rewatch: boolean | null;
 };

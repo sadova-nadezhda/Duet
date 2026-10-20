@@ -1,14 +1,13 @@
-import { useRouter } from 'expo-router';
-import { ChevronLeft, MapPin, Navigation } from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Linking, Platform, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle, ItemMenu } from '@/components/common';
 import { SortableList } from '@/components/SortableList';
-import { AddButton, Button, Card, Chip, ChipRow, Empty, FieldLabel, IconButton, Input, Segmented, Sheet, Txt } from '@/components/ui';
+import { TAB_BAR_SPACE } from '@/components/TabBar';
+import { Button, Card, Chip, ChipRow, Empty, FieldLabel, Input, Screen, ScreenTitle, Segmented, Sheet, Txt } from '@/components/ui';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/lib/theme';
+import { useColors } from '@/lib/theme';
 import type { Place } from '@/lib/types';
 
 const CATEGORIES = ['Ресторан', 'Кафе', 'Бар', 'Природа', 'Музей', 'Путешествие', 'Активности'];
@@ -32,8 +31,7 @@ const alertErr = (e: Error) => Alert.alert('Ошибка', e.message);
 const byPosition = (a: Place, b: Place) => a.position - b.position || b.created_at.localeCompare(a.created_at);
 
 export default function Places() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const c = useColors();
   const places = useCoupleTable<Place>('places', { ascending: false });
   const [tab, setTab] = useState<Tab>('want');
   const [dragging, setDragging] = useState(false);
@@ -98,34 +96,29 @@ export default function Places() {
   };
 
   return (
-    <View style={{ flex: 1, paddingTop: insets.top }}>
-      <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <IconButton icon={ChevronLeft} onPress={() => router.back()} color={colors.text} />
-            <Txt variant="h2">Места</Txt>
-          </View>
-          <AddButton onPress={() => openForm(null)} />
-        </View>
+    <Screen>
+      <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE }}>
+        <ScreenTitle title="Места" onAdd={() => openForm(null)} />
         <Segmented value={tab} onChange={setTab} items={TABS} />
-        <View style={{ height: 16 }} />
-        {!list.length && (
-          <Empty icon={MapPin} title={tab === 'want' ? 'Список пуст' : 'Пока нигде не были'} hint="Сохраняйте кафе, парки и поездки" />
-        )}
+        {!list.length && <Empty title={tab === 'want' ? 'Список пуст' : 'Пока нигде не были'} hint="Сохраняйте кафе, парки и поездки" />}
         {list.length > 1 && (
-          <Txt variant="muted" style={{ fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
-            Зажмите карточку, чтобы поменять порядок
+          <Txt variant="caption" style={{ color: c.textFaint, marginTop: 12, marginBottom: 10 }}>
+            Чтобы поменять порядок, зажмите карточку и перетащите
           </Txt>
         )}
+        {list.length === 1 && <View style={{ height: 16 }} />}
         <SortableList
           data={list}
           keyOf={(p) => p.id}
           onReorder={reorder}
           onDragChange={setDragging}
+          gap={10}
           renderItem={(p, isDragging) => (
-            <Card style={isDragging && { borderColor: colors.accentBorder }}>
+            <Card style={isDragging && { borderWidth: 1, borderColor: c.accent, padding: 15 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
-                <CheckCircle checked={p.visited} onPress={() => toggleVisited(p)} />
+                <View style={{ paddingTop: 1 }}>
+                  <CheckCircle checked={p.visited} onPress={() => toggleVisited(p)} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Txt variant="title" style={{ flex: 1 }}>
@@ -133,10 +126,12 @@ export default function Places() {
                     </Txt>
                     <ItemMenu title={p.title} onEdit={() => openForm(p)} onDelete={() => places.remove(p.id).catch(alertErr)} />
                   </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                    {p.category && <Chip label={p.category} size="sm" tone="accent" />}
-                    {p.address && <Chip label={p.address} size="sm" icon={Navigation} onPress={() => openMap(p.address!)} />}
-                  </View>
+                  {(!!p.category || !!p.address) && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                      {!!p.category && <Chip label={p.category} size="sm" tone="accent" />}
+                      {!!p.address && <Chip label={p.address} size="sm" icon={MapPin} onPress={() => openMap(p.address!)} />}
+                    </View>
+                  )}
                   {!!p.note && (
                     <Txt variant="muted" style={{ marginTop: 8 }}>
                       {p.note}
@@ -170,6 +165,6 @@ export default function Places() {
         <FieldLabel optional>Заметка</FieldLabel>
         <Input value={note} onChangeText={setNote} placeholder="Что заказать, когда лучше идти…" multiline />
       </Sheet>
-    </View>
+    </Screen>
   );
 }

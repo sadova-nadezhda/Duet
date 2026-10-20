@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '@/components/AppHeader';
 import { Button, FieldLabel, Input, Txt } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/lib/theme';
+import { useColors } from '@/lib/theme';
 
 export default function SignIn() {
+  const colors = useColors();
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -79,9 +80,9 @@ export default function SignIn() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1, justifyContent: 'center', padding: 24 }}
       >
-        <Logo size={44} />
+        <Logo size={56} />
         <Txt variant="muted" style={{ marginTop: 8, marginBottom: 16, fontSize: 16 }}>
-          Общий дом, вишлист и фильмотека на двоих
+          Общие дела, желания и кино на двоих
         </Txt>
 
         {mode === 'up' && (

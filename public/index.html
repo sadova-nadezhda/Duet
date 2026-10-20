@@ -5,8 +5,10 @@
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- viewport-fit=cover — контент под вырезом и панелями Safari, отступы даёт safe-area-context -->
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
-    <!-- theme-color Expo добавляет сам из app.json (web.themeColor) -->
-    <meta name="color-scheme" content="dark" />
+    <!-- Цвет полос браузера сверху/снизу — как фон приложения в светлой и тёмной теме (lib/theme.ts) -->
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <title>%WEB_TITLE%</title>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
@@ -14,8 +16,14 @@
       html,
       body {
         height: 100%;
-        /* Без фона html/body белые — их видно под статус-баром и нижней панелью Safari */
-        background-color: #110C18;
+        /* Без фона html/body видно под статус-баром и нижней панелью Safari */
+        background-color: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background-color: #000000;
+        }
       }
       /* These styles disable body scrolling if you are using <ScrollView> */
       body {

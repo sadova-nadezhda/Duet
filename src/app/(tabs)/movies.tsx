@@ -1,13 +1,12 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Clapperboard, Dices, Eye, Popcorn, Star } from 'lucide-react-native';
+import { Dices } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
-import { Chip, ChipRow, Empty, ScreenTitle, Segmented, Txt, Screen } from '@/components/ui';
+import { Chip, ChipRow, Empty, ICON_STROKE, ScreenTitle, Segmented, Txt, Screen } from '@/components/ui';
 import { AddMovieSheet, avgRating, MovieDetailsSheet, Poster, RandomPickSheet } from '@/features/movies/MovieSheets';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts, gradients, radius } from '@/lib/theme';
+import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
 import type { Movie, MovieRating } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -15,6 +14,8 @@ type SortKey = 'new' | 'rating' | 'year';
 
 export default function Movies() {
   const { me } = useAuth();
+  const c = useColors();
+  const styles = useStyles();
   const movies = useCoupleTable<Movie>('movies', { ascending: false });
   const ratings = useCoupleTable<MovieRating>('movie_ratings', { noCoupleFilter: true, orderBy: 'updated_at' });
 
@@ -44,10 +45,10 @@ export default function Movies() {
   const want = movies.rows.filter((m) => m.status === 'want');
   const opened = movies.rows.find((m) => m.id === openedId) ?? null;
 
-  const rate = async (movieId: string, rating: number, comment: string | null) => {
+  const rate = async (movieId: string, rating: number, comment: string | null, rewatch: boolean | null) => {
     const { error } = await supabase
       .from('movie_ratings')
-      .upsert({ movie_id: movieId, user_id: me!.id, rating, comment, updated_at: new Date().toISOString() });
+      .upsert({ movie_id: movieId, user_id: me!.id, rating, comment, rewatch, updated_at: new Date().toISOString() });
     if (error) throw error;
     ratings.reload();
   };
@@ -55,32 +56,23 @@ export default function Movies() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: TAB_BAR_SPACE }}>
-        <ScreenTitle title="Фильмотека" onAdd={() => setAddOpen(true)} />
+        <ScreenTitle title="Кино" onAdd={() => setAddOpen(true)} />
         <Segmented
           value={tab}
           onChange={(t) => (setTab(t), setGenre(null))}
           items={[
-            { key: 'want', label: `Хотим · ${want.length}`, icon: Popcorn },
-            { key: 'watched', label: `Смотрели · ${movies.rows.length - want.length}`, icon: Eye },
+            { key: 'want', label: `Хотим ${want.length}` },
+            { key: 'watched', label: `Смотрели ${movies.rows.length - want.length}` },
           ]}
         />
 
         {tab === 'want' && want.length > 0 && (
-          <Pressable
-            onPress={() => setRandomOpen(true)}
-            style={({ pressed }) => [{ marginTop: 16 }, pressed && { transform: [{ scale: 0.98 }] }]}
-          >
-            <LinearGradient colors={gradients.fab} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.random}>
-              <View style={styles.dice}>
-                <Dices size={26} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontFamily: fonts.extrabold, fontSize: 18 }}>Что смотрим сегодня?</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontFamily: fonts.medium, fontSize: 13, marginTop: 2 }}>
-                  Случайный выбор из вашего списка
-                </Text>
-              </View>
-            </LinearGradient>
+          <Pressable onPress={() => setRandomOpen(true)} style={({ pressed }) => [styles.random, pressed && { opacity: 0.6 }]}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="title">Что смотрим сегодня?</Txt>
+              <Txt variant="muted">Случайный выбор из {want.length}</Txt>
+            </View>
+            <Dices size={24} color={c.accentLight} strokeWidth={ICON_STROKE} />
           </Pressable>
         )}
 
@@ -95,22 +87,19 @@ export default function Movies() {
           </View>
         )}
         {tab === 'watched' && inTab.length > 1 && (
-          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 14 }}>
+            <Txt variant="caption" style={{ color: c.textFaint }}>
+              Сортировка
+            </Txt>
             {(
               [
-                ['new', 'Недавние'],
-                ['rating', 'По оценке'],
-                ['year', 'По году'],
+                ['new', 'недавние'],
+                ['rating', 'по оценке'],
+                ['year', 'по году'],
               ] as const
             ).map(([k, l]) => (
-              <Pressable key={k} onPress={() => setSort(k)}>
-                <Txt
-                  variant="caption"
-                  style={[
-                    { paddingVertical: 4, paddingHorizontal: 8 },
-                    sort === k && { color: colors.accentLight, fontFamily: fonts.bold },
-                  ]}
-                >
+              <Pressable key={k} onPress={() => setSort(k)} hitSlop={8}>
+                <Txt variant="caption" style={sort === k && { color: c.text, fontFamily: fonts.medium }}>
                   {l}
                 </Txt>
               </Pressable>
@@ -120,7 +109,6 @@ export default function Movies() {
 
         {!list.length ? (
           <Empty
-            icon={Clapperboard}
             title={tab === 'want' ? 'Список пуст' : 'Ещё ничего не посмотрели'}
             hint={
               tab === 'want'
@@ -138,19 +126,19 @@ export default function Movies() {
                 <Pressable key={m.id} style={styles.cell} onPress={() => setOpenedId(m.id)}>
                   <View>
                     <Poster path={m.poster_path} title={m.title} />
-                    {m.status === 'watched' && (
+                    {m.status === 'watched' && avg != null && (
                       <View style={styles.rating}>
-                        <Star size={12} color={colors.star} fill={colors.star} />
-                        <Text style={styles.ratingText}>{avg ?? '—'}</Text>
+                        <Text style={styles.ratingText}>{avg}</Text>
                       </View>
                     )}
+                    {/* Синяя точка — вы ещё не поставили оценку */}
                     {m.status === 'watched' && !myRated && <View style={styles.dot} />}
                   </View>
-                  <Txt style={{ fontFamily: fonts.bold, fontSize: 13, marginTop: 8 }} numberOfLines={2}>
+                  <Txt style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 17, marginTop: 8 }} numberOfLines={2}>
                     {m.title}
                   </Txt>
                   <Txt variant="caption" numberOfLines={1}>
-                    {[m.year, m.genres[0]].filter(Boolean).join(' · ')}
+                    {[m.year, m.genres[0]?.toLowerCase()].filter(Boolean).join(', ')}
                   </Txt>
                 </Pressable>
               );
@@ -163,6 +151,7 @@ export default function Movies() {
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         existing={movies.rows}
+        defaultStatus={tab}
         onAdd={(v) => movies.insert(v).then((m) => (setTab(m.status), m))}
       />
       <RandomPickSheet visible={randomOpen} onClose={() => setRandomOpen(false)} movies={want} onOpen={(m) => setOpenedId(m.id)} />
@@ -172,7 +161,7 @@ export default function Movies() {
           ratings={ratingsBy[opened.id] ?? []}
           onClose={() => setOpenedId(null)}
           onUpdate={(v) => movies.update(opened.id, v)}
-          onRate={(r, c) => rate(opened.id, r, c)}
+          onRate={(r, comment, rewatch) => rate(opened.id, r, comment, rewatch)}
           onDelete={() =>
             Alert.alert('Удалить фильм?', opened.title, [
               { text: 'Отмена', style: 'cancel' },
@@ -192,40 +181,29 @@ export default function Movies() {
   );
 }
 
-const styles = StyleSheet.create({
-  random: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg },
-  dice: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, marginTop: 16 },
-  cell: { width: '33.333%', padding: 6, marginBottom: 6 },
-  rating: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
+const useStyles = makeStyles((c) => ({
+  random: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: 'rgba(17,12,24,0.85)',
+    gap: 14,
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
   },
-  ratingText: { color: '#fff', fontFamily: fonts.bold, fontSize: 12 },
-  dot: {
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginTop: 16 },
+  cell: { width: '33.333%', padding: 5, marginBottom: 10 },
+  rating: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.accent,
-    borderWidth: 2,
-    borderColor: colors.bg,
+    bottom: 0,
+    right: 0,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderTopLeftRadius: radius.sm,
+    backgroundColor: c.bg,
   },
-});
+  ratingText: { color: c.text, fontFamily: fonts.medium, fontSize: 13 },
+  dot: { position: 'absolute', top: 8, left: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
+}));

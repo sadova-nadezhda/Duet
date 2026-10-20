@@ -6,7 +6,7 @@ import { TabBar } from '@/components/TabBar';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { rescheduleAll } from '@/lib/notifications';
 import type { Reminder, Task } from '@/lib/types';
-import { colors } from '@/lib/theme';
+import { useColors } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
 
 export const unstable_settings = { initialRouteName: 'home' };
@@ -25,16 +25,17 @@ function NotificationsSync() {
 }
 
 export default function TabsLayout() {
+  const c = useColors();
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <AppHeader />
       <NotificationsSync />
-      <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}>
+      <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: c.bg } }}>
         <Tabs.Screen name="home" />
         <Tabs.Screen name="wishlist" />
         <Tabs.Screen name="us" />
         <Tabs.Screen name="movies" />
-        <Tabs.Screen name="more" />
+        <Tabs.Screen name="places" />
       </Tabs>
     </View>
   );

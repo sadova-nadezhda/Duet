@@ -1,5 +1,5 @@
 -- =====================================================================
--- Duet — схема Supabase. Выполнить один раз: Supabase → SQL Editor → Run.
+-- Duo — схема Supabase. Выполнить один раз: Supabase → SQL Editor → Run.
 -- =====================================================================
 
 create extension if not exists "pgcrypto";
@@ -183,6 +183,7 @@ create table public.movie_ratings (
   user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
   rating     int not null check (rating between 1 and 10),
   comment    text,
+  rewatch    boolean,        -- посмотрел(а) бы ещё раз; null — не ответил(а)
   updated_at timestamptz not null default now(),
   primary key (movie_id, user_id)
 );

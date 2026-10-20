@@ -1,11 +1,11 @@
-import { CheckCheck, ChevronDown, MapPin } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { AssigneeAvatars, CheckCircle, ItemMenu, PersonChips, Reactions } from '@/components/common';
 import { MonthCalendar } from '@/components/MonthCalendar';
-import { Button, Card, Chip, ChipRow, Divider, Empty, FieldLabel, Input, Segmented, Sheet, Txt } from '@/components/ui';
+import { Button, Card, Chip, ChipRow, Empty, FieldLabel, ICON_STROKE, Input, Segmented, Sheet, Txt } from '@/components/ui';
 import { addDays, humanDate, nextWeekend, parseISODate, relativeDay, toISODate, WEEKDAYS_SHORT } from '@/lib/dates';
-import { colors } from '@/lib/theme';
+import { useColors } from '@/lib/theme';
 import type { Task, TaskKind } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -39,7 +39,7 @@ export function scheduleLabel(t: Task) {
   }
   if (t.remind_days_before != null)
     parts.push(t.remind_days_before === 0 ? 'напомнить в день' : `напомнить за ${t.remind_days_before} дн.`);
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
 export function completeTask(t: Task): Partial<Task> {
@@ -51,8 +51,8 @@ export function completeTask(t: Task): Partial<Task> {
   return { due_date: toISODate(next), last_done: todayISO() };
 }
 
-// ---------- Карточка дела ----------
-function TaskCard({
+// ---------- Строка дела ----------
+function TaskRow({
   task,
   onUpdate,
   onDelete,
@@ -63,25 +63,31 @@ function TaskCard({
   onDelete: () => void;
   onEdit: () => void;
 }) {
+  const c = useColors();
   const checked = isTaskChecked(task);
-  const schedule = scheduleLabel(task);
+  const meta = [task.place, scheduleLabel(task)].filter(Boolean).join(', ');
   return (
-    <Card style={{ marginBottom: 14, opacity: checked ? 0.6 : 1 }}>
+    <Card style={{ marginBottom: 10 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
-        <CheckCircle checked={checked} onPress={() => onUpdate(completeTask(task))} />
+        <View style={{ paddingTop: 1 }}>
+          <CheckCircle checked={checked} onPress={() => onUpdate(completeTask(task))} />
+        </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Txt variant="title" style={[{ flex: 1, fontSize: 19 }, checked && { textDecorationLine: 'line-through' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Txt
+              variant="title"
+              style={[{ flex: 1 }, checked && { color: c.textFaint, textDecorationLine: 'line-through' }]}
+            >
               {task.title}
             </Txt>
             <AssigneeAvatars assignee={task.assignee} />
-            <ItemMenu onEdit={onEdit} onDelete={onDelete} />
+            <ItemMenu title={task.title} onEdit={onEdit} onDelete={onDelete} />
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {task.kind !== 'once' && <Chip label="повтор" size="sm" tone="accent" />}
-            {task.place && <Chip label={task.place} size="sm" icon={MapPin} />}
-            {!!schedule && <Chip label={schedule} size="sm" />}
-          </View>
+          {!!meta && (
+            <Txt variant="muted" style={{ marginTop: 2 }}>
+              {meta}
+            </Txt>
+          )}
           <Reactions value={task.reactions} onChange={(reactions) => onUpdate({ reactions })} />
         </View>
       </View>
@@ -101,23 +107,24 @@ export function TasksList({
   remove: (id: string) => Promise<void>;
   onEdit: (t: Task) => void;
 }) {
+  const c = useColors();
   const [showDone, setShowDone] = useState(false);
   const once = tasks.filter((t) => t.kind === 'once' && !t.done).sort(byDue);
   const recurring = tasks.filter((t) => t.kind !== 'once');
   const done = tasks.filter((t) => t.kind === 'once' && t.done);
   const safe = (p: Promise<unknown>) => p.catch((e) => Alert.alert('Ошибка', e.message));
 
-  if (!tasks.length) return <Empty icon={CheckCheck} title="Дел пока нет" hint="Нажмите «+», чтобы добавить первое общее дело" />;
+  if (!tasks.length) return <Empty title="Дел пока нет" hint="Нажмите «+», чтобы добавить первое общее дело" />;
 
   const render = (t: Task) => (
-    <TaskCard key={t.id} task={t} onEdit={() => onEdit(t)} onUpdate={(v) => safe(update(t.id, v))} onDelete={() => safe(remove(t.id))} />
+    <TaskRow key={t.id} task={t} onEdit={() => onEdit(t)} onUpdate={(v) => safe(update(t.id, v))} onDelete={() => safe(remove(t.id))} />
   );
 
   return (
     <View>
       {once.length > 0 && (
         <>
-          <Txt variant="label" style={{ marginBottom: 12 }}>
+          <Txt variant="label" style={{ marginBottom: 10 }}>
             Разовые
           </Txt>
           {once.map(render)}
@@ -125,8 +132,7 @@ export function TasksList({
       )}
       {recurring.length > 0 && (
         <>
-          {once.length > 0 && <Divider />}
-          <Txt variant="label" style={{ marginBottom: 12 }}>
+          <Txt variant="label" style={{ marginTop: once.length ? 18 : 0, marginBottom: 10 }}>
             Повторяющиеся
           </Txt>
           {recurring.map(render)}
@@ -136,10 +142,16 @@ export function TasksList({
         <>
           <Pressable
             onPress={() => setShowDone(!showDone)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: 12 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, marginBottom: 10 }}
+            hitSlop={8}
           >
-            <Txt variant="label">Выполнено · {done.length}</Txt>
-            <ChevronDown size={16} color={colors.textMuted} style={{ transform: [{ rotate: showDone ? '180deg' : '0deg' }] }} />
+            <Txt variant="label">Выполнено {done.length}</Txt>
+            <ChevronDown
+              size={16}
+              color={c.textMuted}
+              strokeWidth={ICON_STROKE}
+              style={{ transform: [{ rotate: showDone ? '180deg' : '0deg' }] }}
+            />
           </Pressable>
           {showDone && done.map(render)}
         </>

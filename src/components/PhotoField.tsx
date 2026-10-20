@@ -3,9 +3,9 @@ import { ImageUp, X } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 import { deletePhoto, pickAndUploadPhoto } from '@/lib/upload';
-import { colors, radius } from '@/lib/theme';
+import { makeStyles, radius, useColors } from '@/lib/theme';
 import { useAuth } from '@/providers/AuthProvider';
-import { Input } from './ui';
+import { ICON_STROKE, Input } from './ui';
 
 /**
  * Поле фото: вставить URL картинки или загрузить из галереи. Значение — всегда URL.
@@ -25,6 +25,8 @@ export function PhotoField({
   square?: boolean;
 }) {
   const { me } = useAuth();
+  const c = useColors();
+  const s = useStyles();
   const [uploading, setUploading] = useState(false);
   const uploaded = useRef(new Set<string>());
 
@@ -62,7 +64,7 @@ export function PhotoField({
           style={{ flex: 1 }}
         />
         <Pressable onPress={upload} style={s.btn} accessibilityLabel="Загрузить фото">
-          {uploading ? <ActivityIndicator color={colors.accentLight} /> : <ImageUp size={22} color={colors.accentLight} />}
+          {uploading ? <ActivityIndicator color={c.textMuted} /> : <ImageUp size={22} color={c.text} strokeWidth={ICON_STROKE} />}
         </Pressable>
       </View>
       {/^https?:\/\//.test(url) && (
@@ -77,12 +79,13 @@ export function PhotoField({
   );
 }
 
-const s = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   btn: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.md,
-    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -92,9 +95,7 @@ const s = StyleSheet.create({
     height: 96,
     borderRadius: radius.md,
     overflow: 'hidden',
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: c.surface,
   },
   clear: {
     position: 'absolute',
@@ -107,4 +108,4 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

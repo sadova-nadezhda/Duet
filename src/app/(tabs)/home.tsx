@@ -1,4 +1,3 @@
-import { ChefHat, Repeat, ShoppingCart } from 'lucide-react-native';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
@@ -38,9 +37,9 @@ export default function Home() {
           value={tab}
           onChange={setTab}
           items={[
-            { key: 'shopping', label: 'Покупки', icon: ShoppingCart },
-            { key: 'tasks', label: 'Дела', icon: Repeat },
-            { key: 'recipes', label: 'Рецепты', icon: ChefHat },
+            { key: 'tasks', label: 'Дела' },
+            { key: 'shopping', label: 'Покупки' },
+            { key: 'recipes', label: 'Рецепты' },
           ]}
         />
 
@@ -71,7 +70,7 @@ export default function Home() {
             )}
           </>
         )}
-        {tab !== 'tasks' && <View style={{ height: 16 }} />}
+        {tab !== 'tasks' && <View style={{ height: 20 }} />}
         {tab === 'shopping' && (
           <ShoppingList rows={shopping.rows} insert={shopping.insert} update={shopping.update} remove={shopping.remove} />
         )}
