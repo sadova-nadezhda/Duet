@@ -63,6 +63,12 @@ export async function searchTitles(query: string): Promise<TmdbSearchItem[]> {
     });
 }
 
+/** IMDb id (tt…) — у фильмов и сериалов он лежит в external_ids */
+export async function imdbId(id: number, type: 'movie' | 'tv'): Promise<string | null> {
+  const d = await get<{ imdb_id?: string | null }>(`/${type}/${id}/external_ids`);
+  return d.imdb_id || null;
+}
+
 export async function titleDetails(id: number, type: 'movie' | 'tv') {
   const d = await get<any>(`/${type}/${id}`);
   return {

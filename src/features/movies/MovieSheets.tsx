@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
 import { Dices, Plus, Search } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Chip, ChipRow, FieldLabel, ICON_STROKE, Input, PersonMark, Segmented, Sheet, Txt } from '@/components/ui';
 import { toISODate } from '@/lib/dates';
+import { imdbRating, isOmdbConfigured, type ImdbRating } from '@/lib/omdb';
 import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
-import { genreMap, isTmdbConfigured, posterUrl, searchTitles, titleDetails, type TmdbSearchItem } from '@/lib/tmdb';
+import { genreMap, imdbId, isTmdbConfigured, posterUrl, searchTitles, titleDetails, type TmdbSearchItem } from '@/lib/tmdb';
 import type { Movie, MovieRating } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -227,6 +228,32 @@ function RatingPicker({ value, onChange }: { value: number | null; onChange: (v:
 export const avgRating = (ratings: MovieRating[]) =>
   ratings.length ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10 : null;
 
+const imdbIdCache = new Map<string, string | null>();
+
+/** Рейтинг IMDb подтягиваем при открытии карточки: TMDB → imdb_id → OMDb. В базе не храним — он меняется */
+function useImdbRating(movie: Movie) {
+  const [value, setValue] = useState<ImdbRating | null>(null);
+  useEffect(() => {
+    setValue(null);
+    if (!isTmdbConfigured || !isOmdbConfigured || movie.tmdb_id == null) return;
+    const key = `${movie.media_type}:${movie.tmdb_id}`;
+    let cancelled = false;
+    (async () => {
+      let id = imdbIdCache.get(key);
+      if (id === undefined) {
+        id = await imdbId(movie.tmdb_id!, movie.media_type);
+        imdbIdCache.set(key, id);
+      }
+      const r = id ? await imdbRating(id) : null;
+      if (!cancelled) setValue(r);
+    })().catch(() => {}); // рейтинг — необязательная деталь, ошибки не показываем
+    return () => {
+      cancelled = true;
+    };
+  }, [movie.tmdb_id, movie.media_type]);
+  return value;
+}
+
 // ======================= Карточка фильма =======================
 export function MovieDetailsSheet({
   movie,
@@ -261,6 +288,7 @@ export function MovieDetailsSheet({
     .filter(Boolean)
     .join(', ');
   const avg = avgRating(ratings);
+  const imdb = useImdbRating(movie);
 
   return (
     <Sheet visible onClose={onClose} title={movie.title}>
@@ -275,6 +303,14 @@ export function MovieDetailsSheet({
           )}
           {movie.original_title && <Txt variant="caption">{movie.original_title}</Txt>}
           <Txt variant="muted">{meta}</Txt>
+          {imdb && (
+            <Pressable onPress={() => Linking.openURL(`https://www.imdb.com/title/${imdb.imdbId}/`)} hitSlop={6}>
+              <Txt variant="muted">
+                <Text style={{ fontFamily: fonts.medium }}>IMDb {imdb.rating}</Text>
+                {imdb.votes ? ` · ${imdb.votes.replace(/,/g, ' ')} оценок` : ''}
+              </Txt>
+            </Pressable>
+          )}
           {movie.genres.length > 0 && <Txt variant="muted">{movie.genres.slice(0, 4).join(', ').toLowerCase()}</Txt>}
           <Txt variant="caption">Добавил(а) {nameOf(movie.added_by)}</Txt>
         </View>
