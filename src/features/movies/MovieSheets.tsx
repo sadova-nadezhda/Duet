@@ -228,25 +228,25 @@ function RatingPicker({ value, onChange }: { value: number | null; onChange: (v:
 export const avgRating = (ratings: MovieRating[]) =>
   ratings.length ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10 : null;
 
-const imdbIdCache = new Map<string, string | null>();
+// Один запрос на фильм за сессию: сетка и карточка открытого фильма делят результат (лимит OMDb — 1000/день)
+const imdbRequests = new Map<string, Promise<ImdbRating | null>>();
 
-/** Рейтинг IMDb подтягиваем при открытии карточки: TMDB → imdb_id → OMDb. В базе не храним — он меняется */
-function useImdbRating(movie: Movie) {
+/** Рейтинг IMDb: TMDB → imdb_id → OMDb. В базе не храним — он меняется */
+export function useImdbRating(movie: Movie) {
   const [value, setValue] = useState<ImdbRating | null>(null);
   useEffect(() => {
     setValue(null);
     if (!isTmdbConfigured || !isOmdbConfigured || movie.tmdb_id == null) return;
     const key = `${movie.media_type}:${movie.tmdb_id}`;
+    let req = imdbRequests.get(key);
+    if (!req) {
+      req = imdbId(movie.tmdb_id, movie.media_type).then((id) => (id ? imdbRating(id) : null));
+      // Ошибку не запоминаем — в следующий раз попробуем снова
+      req.catch(() => imdbRequests.delete(key));
+      imdbRequests.set(key, req);
+    }
     let cancelled = false;
-    (async () => {
-      let id = imdbIdCache.get(key);
-      if (id === undefined) {
-        id = await imdbId(movie.tmdb_id!, movie.media_type);
-        imdbIdCache.set(key, id);
-      }
-      const r = id ? await imdbRating(id) : null;
-      if (!cancelled) setValue(r);
-    })().catch(() => {}); // рейтинг — необязательная деталь, ошибки не показываем
+    req.then((r) => !cancelled && setValue(r)).catch(() => {}); // рейтинг — необязательная деталь, ошибки не показываем
     return () => {
       cancelled = true;
     };

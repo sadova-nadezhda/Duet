@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { TAB_BAR_SPACE } from '@/components/TabBar';
 import { Chip, ChipRow, Empty, ICON_STROKE, ScreenTitle, Segmented, Txt, Screen } from '@/components/ui';
-import { AddMovieSheet, avgRating, MovieDetailsSheet, Poster, RandomPickSheet } from '@/features/movies/MovieSheets';
+import { AddMovieSheet, avgRating, MovieDetailsSheet, Poster, RandomPickSheet, useImdbRating } from '@/features/movies/MovieSheets';
 import { useCoupleTable } from '@/hooks/useCoupleTable';
 import { supabase } from '@/lib/supabase';
 import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
@@ -126,6 +126,7 @@ export default function Movies() {
                 <Pressable key={m.id} style={styles.cell} onPress={() => setOpenedId(m.id)}>
                   <View>
                     <Poster path={m.poster_path} title={m.title} />
+                    <ImdbBadge movie={m} />
                     {m.status === 'watched' && avg != null && (
                       <View style={styles.rating}>
                         <Text style={styles.ratingText}>{avg}</Text>
@@ -181,6 +182,19 @@ export default function Movies() {
   );
 }
 
+/** Рейтинг IMDb в левом нижнем углу постера (справа — оценка пары) */
+function ImdbBadge({ movie }: { movie: Movie }) {
+  const styles = useStyles();
+  const imdb = useImdbRating(movie);
+  if (!imdb) return null;
+  return (
+    <View style={styles.imdb}>
+      <Text style={styles.imdbLabel}>IMDb</Text>
+      <Text style={styles.ratingText}>{imdb.rating}</Text>
+    </View>
+  );
+}
+
 const useStyles = makeStyles((c) => ({
   random: {
     flexDirection: 'row',
@@ -205,5 +219,18 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.bg,
   },
   ratingText: { color: c.text, fontFamily: fonts.medium, fontSize: 13 },
+  imdb: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderTopRightRadius: radius.sm,
+    backgroundColor: c.bg,
+  },
+  imdbLabel: { color: c.textMuted, fontFamily: fonts.medium, fontSize: 10 },
   dot: { position: 'absolute', top: 8, left: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent },
 }));
