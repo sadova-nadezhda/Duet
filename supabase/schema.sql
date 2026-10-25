@@ -188,6 +188,18 @@ create table public.movie_ratings (
   primary key (movie_id, user_id)
 );
 
+-- Мэтч: каждый свайпает фильмы из TMDB; лайк обоих = фильм в «Хотим посмотреть»
+create table public.movie_swipes (
+  couple_id  uuid not null default public.my_couple_id() references public.couples(id) on delete cascade,
+  user_id    uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  tmdb_id    int not null,
+  media_type text not null check (media_type in ('movie','tv')),
+  liked      boolean not null,
+  item       jsonb not null,  -- снимок карточки TMDB: лайкнутое показываем партнёру без лишних запросов
+  created_at timestamptz not null default now(),
+  primary key (user_id, tmdb_id, media_type)
+);
+
 -- =====================================================================
 -- RLS
 -- =====================================================================
@@ -203,6 +215,7 @@ alter table public.places            enable row level security;
 alter table public.notes             enable row level security;
 alter table public.movies            enable row level security;
 alter table public.movie_ratings     enable row level security;
+alter table public.movie_swipes      enable row level security;
 
 create policy "couple: read own"   on public.couples for select using (id = public.my_couple_id());
 create policy "couple: update own" on public.couples for update using (id = public.my_couple_id());
@@ -241,6 +254,14 @@ create policy "ratings: write own" on public.movie_ratings for insert
 create policy "ratings: update own" on public.movie_ratings for update using (user_id = auth.uid());
 create policy "ratings: delete own" on public.movie_ratings for delete using (user_id = auth.uid());
 
+-- Свайпы: читают оба (чтобы поймать мэтч), пишет каждый свои
+create policy "swipes: read couple" on public.movie_swipes for select using (couple_id = public.my_couple_id());
+create policy "swipes: write own" on public.movie_swipes for insert
+  with check (user_id = auth.uid() and couple_id = public.my_couple_id());
+create policy "swipes: update own" on public.movie_swipes for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid() and couple_id = public.my_couple_id());
+create policy "swipes: delete own" on public.movie_swipes for delete using (user_id = auth.uid());
+
 -- =====================================================================
 -- Realtime: синхронизация между телефонами
 -- =====================================================================
@@ -262,4 +283,4 @@ create policy "photos: delete own couple" on storage.objects for delete to authe
 alter publication supabase_realtime add table
   public.tasks, public.reminders, public.shopping_items, public.recipes,
   public.wishes, public.gift_reservations, public.places, public.notes,
-  public.movies, public.movie_ratings, public.profiles, public.couples;
+  public.movies, public.movie_ratings, public.movie_swipes, public.profiles, public.couples;

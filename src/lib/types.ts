@@ -1,3 +1,5 @@
+import type { TmdbSearchItem } from '@/lib/tmdb';
+
 export type Profile = {
   id: string;
   name: string;
@@ -86,6 +88,17 @@ export type Movie = {
   status: 'want' | 'watched';
   added_by: string | null;
   watched_at: string | null;
+  created_at: string;
+};
+
+/** Свайп в мэтче: лайк обоих партнёров добавляет фильм в «Хотим посмотреть» */
+export type MovieSwipe = {
+  couple_id: string;
+  user_id: string;
+  tmdb_id: number;
+  media_type: 'movie' | 'tv';
+  liked: boolean;
+  item: TmdbSearchItem;
   created_at: string;
 };
 

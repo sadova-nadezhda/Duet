@@ -42,6 +42,8 @@ function RootStack() {
       <Stack.Protected guard={signedIn && paired}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+        {/* Свайпы не дружат с жестом закрытия модалки — открываем на весь экран */}
+        <Stack.Screen name="movie-match" options={{ presentation: 'fullScreenModal' }} />
       </Stack.Protected>
     </Stack>
   );

@@ -16,6 +16,12 @@ export const humanDate = (s: string) => {
   return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
 };
 
+/** «12 ноября», а если год не текущий — «12 ноября 2027» */
+export const humanDateWithYear = (s: string) => {
+  const y = parseISODate(s).getFullYear();
+  return y === new Date().getFullYear() ? humanDate(s) : `${humanDate(s)} ${y}`;
+};
+
 export const relativeDay = (s: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

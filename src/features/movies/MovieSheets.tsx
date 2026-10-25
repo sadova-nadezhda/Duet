@@ -3,10 +3,10 @@ import { Dices, Plus, Search } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Chip, ChipRow, FieldLabel, ICON_STROKE, Input, PersonMark, Segmented, Sheet, Txt } from '@/components/ui';
-import { toISODate } from '@/lib/dates';
+import { humanDateWithYear, toISODate } from '@/lib/dates';
 import { imdbRating, isOmdbConfigured, type ImdbRating } from '@/lib/omdb';
 import { fonts, makeStyles, radius, useColors } from '@/lib/theme';
-import { genreMap, imdbId, isTmdbConfigured, posterUrl, searchTitles, titleDetails, type TmdbSearchItem } from '@/lib/tmdb';
+import { genreMap, imdbId, isTmdbConfigured, isUnreleased, posterUrl, releaseDate, searchTitles, titleDetails, type TmdbSearchItem } from '@/lib/tmdb';
 import type { Movie, MovieRating } from '@/lib/types';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -30,6 +30,27 @@ export function Poster({ path, style, title }: { path: string | null; style?: an
       )}
     </View>
   );
+}
+
+/** Запись для фильмотеки из результата TMDB: дотягиваем жанры, описание и длительность */
+export async function movieFromTmdb(r: TmdbSearchItem, status: 'want' | 'watched'): Promise<Partial<Movie>> {
+  const [details, genres] = await Promise.all([
+    titleDetails(r.tmdb_id, r.media_type).catch(() => null),
+    genreMap().catch(() => ({}) as Record<number, string>),
+  ]);
+  return {
+    tmdb_id: r.tmdb_id,
+    media_type: r.media_type,
+    title: r.title,
+    original_title: r.original_title !== r.title ? r.original_title : null,
+    poster_path: r.poster_path,
+    year: r.year,
+    genres: details?.genres ?? r.genre_ids.map((id) => genres[id]).filter(Boolean),
+    overview: details?.overview ?? r.overview ?? null,
+    runtime: details?.runtime ?? null,
+    status,
+    watched_at: status === 'watched' ? toISODate(new Date()) : null,
+  };
 }
 
 // ======================= Добавление (поиск TMDB) =======================
@@ -86,23 +107,7 @@ export function AddMovieSheet({
   const add = async (r: TmdbSearchItem) => {
     setAdding(r.tmdb_id);
     try {
-      const [details, genres] = await Promise.all([
-        titleDetails(r.tmdb_id, r.media_type).catch(() => null),
-        genreMap().catch(() => ({}) as Record<number, string>),
-      ]);
-      await onAdd({
-        tmdb_id: r.tmdb_id,
-        media_type: r.media_type,
-        title: r.title,
-        original_title: r.original_title !== r.title ? r.original_title : null,
-        poster_path: r.poster_path,
-        year: r.year,
-        genres: details?.genres ?? r.genre_ids.map((id) => genres[id]).filter(Boolean),
-        overview: details?.overview ?? r.overview ?? null,
-        runtime: details?.runtime ?? null,
-        status,
-        watched_at: status === 'watched' ? toISODate(new Date()) : null,
-      });
+      await onAdd(await movieFromTmdb(r, status));
       onClose();
     } catch (e) {
       alertErr(e);
@@ -143,12 +148,14 @@ export function AddMovieSheet({
 
       {results.map((r) => {
         const has = already.has(`${r.media_type}:${r.tmdb_id}`);
+        // Не вышедшее не добавляем — оно живёт во вкладке «Скоро»
+        const soon = isUnreleased(r);
         return (
           <Pressable
             key={`${r.media_type}${r.tmdb_id}`}
-            disabled={has || adding !== null}
+            disabled={has || soon || adding !== null}
             onPress={() => add(r)}
-            style={({ pressed }) => [styles.result, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.result, soon && { opacity: 0.55 }, pressed && { opacity: 0.7 }]}
           >
             <Poster path={r.poster_path} style={{ width: 48, height: 72, borderRadius: 6 }} />
             <View style={{ flex: 1 }}>
@@ -169,6 +176,12 @@ export function AddMovieSheet({
               <ActivityIndicator color={c.textMuted} />
             ) : has ? (
               <Txt variant="caption">уже есть</Txt>
+            ) : soon ? (
+              <Txt variant="caption" style={{ color: c.accentLight, textAlign: 'right' }}>
+                {r.media_type === 'tv' ? 'Начнётся' : 'Выйдет'}
+                {'\n'}
+                {humanDateWithYear(r.release_date!)}
+              </Txt>
             ) : (
               <Plus size={22} color={c.accentLight} strokeWidth={ICON_STROKE} />
             )}
@@ -225,6 +238,12 @@ function RatingPicker({ value, onChange }: { value: number | null; onChange: (v:
   );
 }
 
+const normalize = (s: string) => s.toLowerCase().replace(/ё/g, 'е').trim();
+
+/** Поиск по фильмотеке: подстрока в русском или оригинальном названии, «ё» = «е» */
+export const matchesTitle = (query: string, ...titles: (string | null | undefined)[]) =>
+  !query.trim() || titles.some((t) => t && normalize(t).includes(normalize(query)));
+
 export const avgRating = (ratings: MovieRating[]) =>
   ratings.length ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10 : null;
 
@@ -232,25 +251,79 @@ export const avgRating = (ratings: MovieRating[]) =>
 const imdbRequests = new Map<string, Promise<ImdbRating | null>>();
 
 /** Рейтинг IMDb: TMDB → imdb_id → OMDb. В базе не храним — он меняется */
-export function useImdbRating(movie: Movie) {
+type TmdbRef = { tmdb_id: number | null; media_type: 'movie' | 'tv' };
+
+function fetchImdb(movie: TmdbRef): Promise<ImdbRating | null> {
+  if (!isTmdbConfigured || !isOmdbConfigured || movie.tmdb_id == null) return Promise.resolve(null);
+  const key = `${movie.media_type}:${movie.tmdb_id}`;
+  let req = imdbRequests.get(key);
+  if (!req) {
+    req = imdbId(movie.tmdb_id, movie.media_type).then((id) => (id ? imdbRating(id) : null));
+    // Ошибку не запоминаем — в следующий раз попробуем снова
+    req.catch(() => imdbRequests.delete(key));
+    imdbRequests.set(key, req);
+  }
+  return req;
+}
+
+export function useImdbRating(movie: TmdbRef) {
   const [value, setValue] = useState<ImdbRating | null>(null);
   useEffect(() => {
     setValue(null);
-    if (!isTmdbConfigured || !isOmdbConfigured || movie.tmdb_id == null) return;
-    const key = `${movie.media_type}:${movie.tmdb_id}`;
-    let req = imdbRequests.get(key);
-    if (!req) {
-      req = imdbId(movie.tmdb_id, movie.media_type).then((id) => (id ? imdbRating(id) : null));
-      // Ошибку не запоминаем — в следующий раз попробуем снова
-      req.catch(() => imdbRequests.delete(key));
-      imdbRequests.set(key, req);
-    }
     let cancelled = false;
-    req.then((r) => !cancelled && setValue(r)).catch(() => {}); // рейтинг — необязательная деталь, ошибки не показываем
+    fetchImdb(movie)
+      .then((r) => !cancelled && setValue(r))
+      .catch(() => {}); // рейтинг — необязательная деталь, ошибки не показываем
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movie.tmdb_id, movie.media_type]);
+  return value;
+}
+
+/** Рейтинги IMDb для списка фильмов (для сортировки): id фильма → оценка, пока не загрузилась — нет ключа */
+export function useImdbRatings(movies: Movie[], enabled = true) {
+  const [values, setValues] = useState<Record<string, number | null>>({});
+  const ids = movies.map((m) => m.id).join(',');
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    for (const m of movies) {
+      fetchImdb(m)
+        .then((r) => !cancelled && setValues((v) => ({ ...v, [m.id]: r ? Number(r.rating) : null })))
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids, enabled]);
+  return values;
+}
+
+const releaseRequests = new Map<string, Promise<string | null>>();
+
+/** Дата премьеры, если она ещё впереди, иначе null. Фильмы прошлых лет не запрашиваем — они точно вышли */
+export function useUpcomingRelease(movie: Movie) {
+  const [value, setValue] = useState<string | null>(null);
+  useEffect(() => {
+    setValue(null);
+    if (!isTmdbConfigured || movie.tmdb_id == null) return;
+    if (movie.year != null && movie.year < new Date().getFullYear()) return;
+    const key = `${movie.media_type}:${movie.tmdb_id}`;
+    let req = releaseRequests.get(key);
+    if (!req) {
+      req = releaseDate(movie.tmdb_id, movie.media_type);
+      req.catch(() => releaseRequests.delete(key));
+      releaseRequests.set(key, req);
+    }
+    let cancelled = false;
+    req.then((d) => !cancelled && setValue(d && d > toISODate(new Date()) ? d : null)).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [movie.tmdb_id, movie.media_type, movie.year]);
   return value;
 }
 
@@ -271,6 +344,7 @@ export function MovieDetailsSheet({
   onRate: (rating: number, comment: string | null, rewatch: boolean | null) => Promise<void>;
 }) {
   const { me, partner, nameOf } = useAuth();
+  const c = useColors();
   const styles = useStyles();
   const mine = ratings.find((r) => r.user_id === me?.id);
   const theirs = ratings.find((r) => r.user_id === partner?.id);
@@ -289,6 +363,7 @@ export function MovieDetailsSheet({
     .join(', ');
   const avg = avgRating(ratings);
   const imdb = useImdbRating(movie);
+  const release = useUpcomingRelease(movie);
 
   return (
     <Sheet visible onClose={onClose} title={movie.title}>
@@ -303,6 +378,7 @@ export function MovieDetailsSheet({
           )}
           {movie.original_title && <Txt variant="caption">{movie.original_title}</Txt>}
           <Txt variant="muted">{meta}</Txt>
+          {release && <Txt style={{ color: c.accentLight, fontFamily: fonts.medium }}>Выйдет {humanDateWithYear(release)}</Txt>}
           {imdb && (
             <Pressable onPress={() => Linking.openURL(`https://www.imdb.com/title/${imdb.imdbId}/`)} hitSlop={6}>
               <Txt variant="muted">
